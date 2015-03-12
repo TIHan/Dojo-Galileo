@@ -113,15 +113,28 @@ module R =
     [<Import; MI (MIO.NoInlining)>]
     let drawVbo (offset: int) (size: int) (f: VboDelegate) (vbo: int) : unit =
         C """
-        // Draw the triangle !
         f ();
+
+        glBindBuffer (GL_ARRAY_BUFFER, vbo);
+        glEnableVertexAttribArray(0);
+
+        glVertexAttribPointer(
+            0,                  // attribute 0. No particular reason for 0, but must match the layout in the shader.
+            3,                  // size
+            GL_FLOAT,           // type
+            GL_FALSE,           // normalized?
+            0,                  // stride
+            (void*)0            // array buffer offset
+        );
+
         glDrawArrays(GL_TRIANGLES, offset, size); // 3 indices starting at 0 -> 1 triangle
+        glDisableVertexAttribArray(0);
         """
 
     [<Import; MI (MIO.NoInlining)>]
     let updateVbo (offset: int) (size: int) (data: DrawTriangle []) (vbo: int) : unit =
         C """
-        //glBindBuffer (GL_ARRAY_BUFFER, vbo);
+        glBindBuffer (GL_ARRAY_BUFFER, vbo);
         glBufferSubData (GL_ARRAY_BUFFER, offset, size, data);
         """
 
@@ -149,7 +162,7 @@ module R =
         glAttachShader (shaderProgram, vertexShader);
         glAttachShader (shaderProgram, fragmentShader);
 
-        glBindFragDataLocation (shaderProgram, 0, "color");
+        //glBindFragDataLocation (shaderProgram, 0, "color");
 
         glLinkProgram (shaderProgram);
 
@@ -167,16 +180,6 @@ module R =
         glVertexAttribPointer (posAttrib, 2, GL_FLOAT, GL_FALSE, 0, 0);
 
         glEnableVertexAttribArray (posAttrib);
-        glEnableVertexAttribArray(0);
-
-        glVertexAttribPointer(
-            0,                  // attribute 0. No particular reason for 0, but must match the layout in the shader.
-            3,                  // size
-            GL_FLOAT,           // type
-            GL_FALSE,           // normalized?
-            0,                  // stride
-            (void*)0            // array buffer offset
-        );
 
         return shaderProgram;
         """
