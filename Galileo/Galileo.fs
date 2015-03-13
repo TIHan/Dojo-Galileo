@@ -20,7 +20,7 @@ type DrawTriangle =
 
     new (x, y, z) = { X = x; Y = y; Z = z }
 
-type Triangle = Triangle of startIndex: int * endIndex: int
+type Triangle = Triangle of vbo: int
 
 type Sphere = Sphere of unit
 
@@ -140,13 +140,6 @@ module R =
         """
 
     [<Import; MI (MIO.NoInlining)>]
-    let updateVbo (offset: int) (size: int) (data: DrawTriangle []) (vbo: int) : unit =
-        C """
-        //glBindBuffer (GL_ARRAY_BUFFER, vbo);
-        glBufferSubData (GL_ARRAY_BUFFER, offset, size, data);
-        """
-
-    [<Import; MI (MIO.NoInlining)>]
     let drawColor (shaderProgram: int) (r: single) (g: single) (b: single) : unit = 
         C """
         GLint uni_color = glGetUniformLocation (shaderProgram, "uni_color");
@@ -170,8 +163,6 @@ module R =
         glAttachShader (shaderProgram, vertexShader);
         glAttachShader (shaderProgram, fragmentShader);
 
-        //glBindFragDataLocation (shaderProgram, 0, "color");
-
         glLinkProgram (shaderProgram);
 
         glUseProgram (shaderProgram);
@@ -182,12 +173,6 @@ module R =
         glGenVertexArrays (1, &vao);
 
         glBindVertexArray (vao);
-
-        GLint posAttrib = glGetAttribLocation (shaderProgram, "position");
-
-        glVertexAttribPointer (posAttrib, 2, GL_FLOAT, GL_FALSE, 0, 0);
-
-        glEnableVertexAttribArray (posAttrib);
 
         return shaderProgram;
         """
@@ -289,31 +274,19 @@ module GameLoop =
 
 [<RequireQualifiedAccess>]
 module Galileo =
-
-    let vbo = ref 0
-    let shaderProgram = ref 0
     let window = ref System.IntPtr.Zero
 
-    let currentOffset = ref 0
-    let bufferInfo = System.Collections.Generic.Dictionary<int * int, single * single * single> ()
+    let bufferInfo = System.Collections.Generic.Dictionary<int, int * (single * single * single)> ()
 
     let addDrawTriangle datum color =
         let size = sizeof<DrawTriangle>
-        let offset = !currentOffset
-
-        R.updateVbo offset size [|datum|] !vbo
-        bufferInfo.Add ((offset, size), color)
-        currentOffset := offset + size
+        let vbo = R.generateVbo size [|datum|]
+        bufferInfo.Add (vbo, (size, color))
 
     let proc = new MailboxProcessor<AsyncReplyChannel<unit> * (unit -> unit)>(fun inbox ->
         let rec loop () = async {
             let r = R.init (!window)
-            // buffer limit
-            let size = 65536
-            let lines = Array.init size (fun _ -> DrawTriangle())
-            vbo := R.generateVbo (size * sizeof<DrawTriangle>) lines
-
-            shaderProgram := R.loadShaders ()
+            let shaderProgram = R.loadShaders ()
 
             let rec executeRenderCommands () =
                 match inbox.CurrentQueueLength with
@@ -344,20 +317,13 @@ module Galileo =
 
                     bufferInfo
                     |> Seq.iter (fun kvp ->
-                        let key, value = kvp.Key, kvp.Value
-                        let offset, size = key
-                        let r, g, b = value
+                        let vbo, value = kvp.Key, kvp.Value
+                        let size, color = value
+                        let r, g, b = color
 
-                        R.drawColor !shaderProgram r g b
+                        R.drawColor shaderProgram r g b
 
-                        R.drawVbo offset size !vbo)
-
-                        //R.drawColor !shaderProgram 0.f 1.f 0.f
-
-                        //let datum = DrawTriangle (Vector3 (0.f, -1.f, 0.f), Vector3 (1.f, 1.f, 0.f), Vector3 (-1.f, 1.f, 0.f))
-                        //R.updateVbo (size) size [|datum|] !vbo
-
-                       // R.drawVbo (size) size !vbo)
+                        R.drawVbo 0 size vbo)
 
                     R.draw r
                 )
@@ -375,7 +341,7 @@ module Galileo =
             let datum = DrawTriangle (Vector3 (0.f, 1.f, 0.f), Vector3 (-1.f, -1.f, 0.f), Vector3 (1.f, -1.f, 0.f))
             addDrawTriangle datum (1.f, 0.f, 0.f)
 
-        return Triangle (0, 0)
+        return Triangle 0
     }
 
     let spawnDefaultBlueTriangle () : Async<Triangle> = async {
@@ -383,7 +349,7 @@ module Galileo =
             let datum = DrawTriangle (Vector3 (0.f, -1.f, 0.f), Vector3 (1.f, 1.f, 0.f), Vector3 (-1.f, 1.f, 0.f))
             addDrawTriangle datum (0.f, 0.f, 1.f)
 
-        return Triangle (0, 0)
+        return Triangle 0
     }
 
     let spawnDefaultSphere () : Async<Sphere> = async {
