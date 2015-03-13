@@ -311,9 +311,9 @@ module Galileo =
                     ()
                 ) 
                 (fun t prev curr ->
-                    executeRenderCommands ()
-
                     R.clear ()
+
+                    executeRenderCommands ()
 
                     bufferInfo
                     |> Seq.iter (fun kvp ->
