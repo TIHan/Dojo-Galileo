@@ -121,10 +121,8 @@ module R =
         """
 
     [<Import; MI (MIO.NoInlining)>]
-    let drawVbo (offset: int) (size: int) (f: VboDelegate) (vbo: int) : unit =
+    let drawVbo (offset: int) (size: int) (vbo: int) : unit =
         C """
-        f ();
-
         glBindBuffer (GL_ARRAY_BUFFER, vbo);
         glEnableVertexAttribArray(0);
 
@@ -144,7 +142,7 @@ module R =
     [<Import; MI (MIO.NoInlining)>]
     let updateVbo (offset: int) (size: int) (data: DrawTriangle []) (vbo: int) : unit =
         C """
-        glBindBuffer (GL_ARRAY_BUFFER, vbo);
+        //glBindBuffer (GL_ARRAY_BUFFER, vbo);
         glBufferSubData (GL_ARRAY_BUFFER, offset, size, data);
         """
 
@@ -350,11 +348,16 @@ module Galileo =
                         let offset, size = key
                         let r, g, b = value
 
-                        let del = VboDelegate (fun () -> 
-                                R.drawColor !shaderProgram r g b
-                        )
+                        R.drawColor !shaderProgram r g b
 
-                        R.drawVbo offset size del !vbo)
+                        R.drawVbo offset size !vbo)
+
+                        //R.drawColor !shaderProgram 0.f 1.f 0.f
+
+                        //let datum = DrawTriangle (Vector3 (0.f, -1.f, 0.f), Vector3 (1.f, 1.f, 0.f), Vector3 (-1.f, 1.f, 0.f))
+                        //R.updateVbo (size) size [|datum|] !vbo
+
+                       // R.drawVbo (size) size !vbo)
 
                     R.draw r
                 )
