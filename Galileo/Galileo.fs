@@ -306,7 +306,7 @@ module Galileo =
                     ()
                 )
                 (fun time interval curr ->
-                    GC.Collect (2, GCCollectionMode.Forced, true)
+                    GC.Collect (0, GCCollectionMode.Forced, true)
 
                     ()
                 ) 
