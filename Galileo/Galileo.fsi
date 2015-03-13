@@ -4,6 +4,9 @@
 type Triangle
 
 [<Sealed>]
+type Octahedron
+
+[<Sealed>]
 type Sphere
 
 [<System.Runtime.InteropServices.UnmanagedFunctionPointer (System.Runtime.InteropServices.CallingConvention.Cdecl)>]
@@ -17,5 +20,7 @@ module Galileo =
     val spawnDefaultRedTriangle : unit -> Async<Triangle>
 
     val spawnDefaultBlueTriangle : unit -> Async<Triangle>
+
+    val spawnDefaultOctahedron : unit -> Async<Octahedron>
 
     val spawnDefaultSphere : unit -> Async<Sphere>

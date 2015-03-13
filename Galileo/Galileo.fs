@@ -22,15 +22,12 @@ type DrawTriangle =
 
 type Triangle = Triangle of vbo: int
 
+type Octahedron = Octahedron of vbo: int
+
 type Sphere = Sphere of unit
 
 [<System.Runtime.InteropServices.UnmanagedFunctionPointer (System.Runtime.InteropServices.CallingConvention.Cdecl)>]
 type VboDelegate = delegate of unit -> unit
-
-[<Ferop>]
-module TestMe =
-    [<Import; MI (MIO.NoInlining)>]
-    let test () : unit = C """ """
 
 [<Ferop>]
 [<ClangOsx (
@@ -109,7 +106,7 @@ module R =
     let draw (app: Renderer) : unit = C """ SDL_GL_SwapWindow ((SDL_Window*)app.Window); """
 
     [<Import; MI (MIO.NoInlining)>]
-    let generateVbo (size: int) (data: DrawTriangle[]) : int =
+    let generateVbo (size: int) (data: single []) : int =
         C """
         GLuint vbo;
         glGenBuffers (1, &vbo);
@@ -136,6 +133,25 @@ module R =
         );
 
         glDrawArrays(GL_TRIANGLES, offset, size); // 3 indices starting at 0 -> 1 triangle
+        glDisableVertexAttribArray(0);
+        """
+
+    [<Import; MI (MIO.NoInlining)>]
+    let drawIndices (count: int) (indices: int []) (vbo: int) : unit =
+        C """
+        glBindBuffer (GL_ARRAY_BUFFER, vbo);
+        glEnableVertexAttribArray(0);
+
+        glVertexAttribPointer(
+            0,                  // attribute 0. No particular reason for 0, but must match the layout in the shader.
+            3,                  // size
+            GL_FLOAT,           // type
+            GL_FALSE,           // normalized?
+            0,                  // stride
+            (void*)0            // array buffer offset
+        );
+
+        glDrawElements(GL_TRIANGLES, count, GL_UNSIGNED_INT, indices);
         glDisableVertexAttribArray(0);
         """
 
@@ -274,13 +290,47 @@ module GameLoop =
 
 [<RequireQualifiedAccess>]
 module Galileo =
+
+    let octahedron_vtx = 
+        [|
+           0.0f; -1.0f;  0.0f;
+           1.0f;  0.0f;  0.0f;
+           0.0f;  0.0f;  1.0f;
+          -1.0f;  0.0f;  0.0f;
+           0.0f;  0.0f; -1.0f;
+           0.0f;  1.0f;  0.0f
+        |]
+
+    let octahedron_idx =
+        [|
+            0; 1; 2;
+            0; 2; 3;
+            0; 3; 4;
+            0; 4; 1;
+            1; 5; 2;
+            2; 5; 3;
+            3; 5; 4;
+            4; 5; 1;
+        |]
+
     let window = ref System.IntPtr.Zero
 
     let bufferInfo = System.Collections.Generic.Dictionary<int, int * (single * single * single)> ()
 
-    let addDrawTriangle datum color =
+    let addDrawTriangle (datum: DrawTriangle) color =
         let size = sizeof<DrawTriangle>
-        let vbo = R.generateVbo size [|datum|]
+
+        let data =
+            [|datum.X;datum.Y;datum.Z|]
+            |> Array.map (fun v -> [|v.X;v.Y;v.Z|])
+            |> Array.reduce Array.append
+
+        let vbo = R.generateVbo size data
+        bufferInfo.Add (vbo, (size, color))
+
+    let addOctahedron color =
+        let size = sizeof<single> * octahedron_vtx.Length
+        let vbo = R.generateVbo size octahedron_vtx
         bufferInfo.Add (vbo, (size, color))
 
     let proc = new MailboxProcessor<AsyncReplyChannel<unit> * (unit -> unit)>(fun inbox ->
@@ -323,6 +373,7 @@ module Galileo =
 
                         R.drawColor shaderProgram r g b
 
+                        //R.drawIndices octahedron_idx.Length octahedron_idx vbo)
                         R.drawVbo 0 size vbo)
 
                     R.draw r
@@ -350,6 +401,13 @@ module Galileo =
             addDrawTriangle datum (0.f, 0.f, 1.f)
 
         return Triangle 0
+    }
+
+    let spawnDefaultOctahedron () : Async<Octahedron> = async {
+        proc.PostAndReply <| fun ch -> ch, fun () ->
+            addOctahedron (0.f, 1.f, 0.f)
+
+        return Octahedron 0
     }
 
     let spawnDefaultSphere () : Async<Sphere> = async {
