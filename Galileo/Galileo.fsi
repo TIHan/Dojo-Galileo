@@ -12,6 +12,8 @@ type VboDelegate = delegate of unit -> unit
 [<RequireQualifiedAccess>]
 module Galileo =
 
+    val init : unit -> unit
+
     val spawnDefaultRedTriangle : unit -> Async<Triangle>
 
     val spawnDefaultBlueTriangle : unit -> Async<Triangle>

@@ -28,6 +28,11 @@ type Sphere = Sphere of unit
 type VboDelegate = delegate of unit -> unit
 
 [<Ferop>]
+module TestMe =
+    [<Import; MI (MIO.NoInlining)>]
+    let test () : unit = C """ """
+
+[<Ferop>]
 [<ClangOsx (
     "-DGL_GLEXT_PROTOTYPES -I/Library/Frameworks/SDL2.framework/Headers",
     "-F/Library/Frameworks -framework Cocoa -framework OpenGL -framework IOKit -framework SDL2"
@@ -53,19 +58,24 @@ type VboDelegate = delegate of unit -> unit
 module R = 
 
     [<Import; MI (MIO.NoInlining)>]
-    let init () : Renderer =
+    let createWindow () : nativeint =
         C """
         SDL_Init (SDL_INIT_VIDEO);
+        return
+        SDL_CreateWindow(
+            "Galileo",
+            SDL_WINDOWPOS_UNDEFINED,
+            SDL_WINDOWPOS_UNDEFINED,
+            600, 600,
+            SDL_WINDOW_OPENGL);
+        """
 
+    [<Import; MI (MIO.NoInlining)>]
+    let init (window: nativeint) : Renderer =
+        C """
         R_Renderer r;
 
-        r.Window = 
-            SDL_CreateWindow(
-                "Galileo",
-                SDL_WINDOWPOS_UNDEFINED,
-                SDL_WINDOWPOS_UNDEFINED,
-                600, 600,
-                SDL_WINDOW_OPENGL);
+        r.Window = window;
 
         SDL_GL_SetAttribute (SDL_GL_CONTEXT_MAJOR_VERSION, 3);
         SDL_GL_SetAttribute (SDL_GL_CONTEXT_MINOR_VERSION, 2);
@@ -284,6 +294,7 @@ module Galileo =
 
     let vbo = ref 0
     let shaderProgram = ref 0
+    let window = ref System.IntPtr.Zero
 
     let currentOffset = ref 0
     let bufferInfo = System.Collections.Generic.Dictionary<int * int, single * single * single> ()
@@ -297,9 +308,8 @@ module Galileo =
         currentOffset := offset + size
 
     let proc = new MailboxProcessor<AsyncReplyChannel<unit> * (unit -> unit)>(fun inbox ->
-        let rec loop () = async { 
-            let r = R.init ()
-
+        let rec loop () = async {
+            let r = R.init (!window)
             // buffer limit
             let size = 65536
             let lines = Array.init size (fun _ -> DrawTriangle())
@@ -351,8 +361,11 @@ module Galileo =
         }
         loop ())
 
-    printfn "Begin Initializing Galileo"
-    proc.Start ()
+    let init () =
+        printfn "Begin Initializing Galileo"
+        window := R.createWindow ()
+        proc.Start ()
+        ()
 
     let spawnDefaultRedTriangle () : Async<Triangle> = async {
         proc.PostAndReply <| fun ch -> ch, fun () ->
