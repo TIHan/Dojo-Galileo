@@ -271,8 +271,6 @@ module GameLoop =
               RenderFrameCountTime = 0L
               RenderFrameLastCount = 0 }
 
-type Client<'T> = Client of state: 'T
-
 type Triangle =
     {
         vertices: Vector3 []
@@ -319,26 +317,18 @@ module Galileo =
             4; 5; 1;
         |]
 
-    type Galileo =
-        {
-            clientEntities: Client<Entity> list
-        }
-
-    type ClientCommand =
-        | Execute of (int64 -> int64 -> Galileo -> Galileo)
-
     type RendererCommand =
-        | Execute of (float32 -> Galileo -> Galileo -> unit)
+        | Execute of (int -> float32 -> unit) Lazy
 
     [<RequireQualifiedAccess>]
     type Command =
-        | Client of ClientCommand
         | Renderer of RendererCommand
 
     let proc = new MailboxProcessor<Command> (fun inbox ->
-        let window = ref System.IntPtr.Zero
-        let clientQueue = System.Collections.Generic.Queue<ClientCommand> ()
+        let window = R.createWindow ()
         let rendererQueue = System.Collections.Generic.Queue<RendererCommand> ()
+
+        let drawCalls = ResizeArray<(int -> float32 -> unit) Lazy> ()
 
         let rec loop () = async {
             let rec poll () =
@@ -346,48 +336,37 @@ module Galileo =
                 | 0 -> ()
                 | _ ->
                     match inbox.Receive () |> Async.RunSynchronously with
-                    | Command.Client cmd -> clientQueue.Enqueue cmd
                     | Command.Renderer cmd -> rendererQueue.Enqueue cmd
 
-            let rec executeClientMessages time interval state =
-                match clientQueue.Count with
-                | 0 -> state
-                | _ ->
-                    match clientQueue.Dequeue () with
-                    | ClientCommand.Execute f -> 
-                        let state = f time interval state
-                        executeClientMessages time interval state
-
-            let rec executeRendererMessages t prev curr =
+            let rec executeRendererMessages () =
                 match rendererQueue.Count with
                 | 0 -> ()
                 | _ ->
                     match rendererQueue.Dequeue () with
                     | RendererCommand.Execute f -> 
-                        f t prev curr
-                        executeRendererMessages t prev curr
+                        drawCalls.Add f
+                        executeRendererMessages ()
 
-            let r = R.init (!window)
+            let r = R.init window
             let shaderProgram = R.loadShaders ()
 
-            let initial =
-                {
-                    clientEntities = []
-                }
-
-            GameLoop.start initial id
+            GameLoop.start () id
                 // server/client
                 (fun time interval state ->
                     GC.Collect (0, GCCollectionMode.Forced, true)
 
                     poll ()
-                    executeClientMessages time interval state
+                    executeRendererMessages ()
+
+                    state
                 )
                 // client/render
                 (fun t prev curr ->
                     R.clear ()
 
-                    executeRendererMessages t prev curr
+                    drawCalls
+                    |> Seq.iter (fun x ->
+                        x.Force() shaderProgram t)
 
                     R.draw r
                 )
@@ -399,12 +378,25 @@ module Galileo =
         proc.Start ()
         ()
 
+    let runRenderer (f: (int -> float32 -> unit) Lazy) =
+        proc.Post (Command.Renderer (RendererCommand.Execute f))
+
     let spawnDefaultRedTriangle () : Async<Triangle> = async {
         let ent : Triangle = 
             {
                 vertices = [|Vector3 (0.f, 1.f, 0.f); Vector3 (-1.f, -1.f, 0.f); Vector3 (1.f, -1.f, 0.f)|]
                 color = (1.f, 0.f, 0.f)
             }
+
+        runRenderer <|
+            lazy
+                let size = sizeof<Vector3> * ent.vertices.Length
+                let vbo = R.generateVbo ent.vertices size
+
+                fun shaderProgram t ->
+                    let r, g, b = ent.color
+                    R.drawColor shaderProgram r g b
+                    R.drawVbo 0 size vbo
 
         return ent
     }
@@ -415,6 +407,16 @@ module Galileo =
                 vertices = [|Vector3 (0.f, -1.f, 0.f); Vector3 (1.f, 1.f, 0.f); Vector3 (-1.f, 1.f, 0.f)|]
                 color = (0.f, 0.f, 1.f)
             }
+
+        runRenderer <|
+            lazy
+                let size = sizeof<Vector3> * ent.vertices.Length
+                let vbo = R.generateVbo ent.vertices size
+
+                fun shaderProgram t ->
+                    let r, g, b = ent.color
+                    R.drawColor shaderProgram r g b
+                    R.drawVbo 0 size vbo
 
         return ent
     }
