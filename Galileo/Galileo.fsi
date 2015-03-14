@@ -9,8 +9,7 @@ type Octahedron
 [<Sealed>]
 type Sphere
 
-[<System.Runtime.InteropServices.UnmanagedFunctionPointer (System.Runtime.InteropServices.CallingConvention.Cdecl)>]
-type VboDelegate = delegate of unit -> unit
+type Entity<'T> = Entity of 'T
 
 [<RequireQualifiedAccess>]
 module Galileo =

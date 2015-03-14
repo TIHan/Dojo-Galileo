@@ -19,15 +19,37 @@ type DrawTriangle =
     val Z : Vector3
 
     new (x, y, z) = { X = x; Y = y; Z = z }
+ 
+type Server<'a> = Server of state: 'a * update: (int64 -> 'a -> 'a)
 
-type Triangle = Triangle of vbo: int
+type Client<'a, 'b> = Client of map: ('a -> 'b) * state: 'b * render: (float32 -> 'b -> 'b -> unit)
 
-type Octahedron = Octahedron of vbo: int
+type ClientServer<'a, 'b> =
+    {
+        server: Server<'a>
+        client: Client<'a, 'b>
+    }
+
+type Triangle =
+    {
+        data: DrawTriangle
+        color: float32 * float32 * float32
+    }
+
+type Octahedron =
+    {
+        vertices: single []
+        indices: int []
+        color: float32 * float32 * float32
+    }
 
 type Sphere = Sphere of unit
 
-[<System.Runtime.InteropServices.UnmanagedFunctionPointer (System.Runtime.InteropServices.CallingConvention.Cdecl)>]
-type VboDelegate = delegate of unit -> unit
+[<RequireQualifiedAccess>]
+type Entity =
+    | Triangle of Triangle
+    | Octahedron of Octahedron
+    | Sphere of Sphere
 
 [<Ferop>]
 [<ClangOsx (
@@ -333,48 +355,37 @@ module Galileo =
         let vbo = R.generateVbo size octahedron_vtx
         bufferInfo.Add (vbo, (size, color))
 
+    type Galileo =
+        {
+            clientEntities: Client<Entity, Entity> list
+        }
+
     let proc = new MailboxProcessor<AsyncReplyChannel<unit> * (unit -> unit)>(fun inbox ->
         let rec loop () = async {
             let r = R.init (!window)
             let shaderProgram = R.loadShaders ()
 
-            let rec executeRenderCommands () =
-                match inbox.CurrentQueueLength with
-                | 0 -> ()
-                | _ ->
-                    let ch, cmd = inbox.Receive () |> Async.RunSynchronously
+            let initial =
+                {
+                    clientEntities = []
+                }
 
-                    try
-                        cmd ()
-                    with | ex -> printfn "%A" ex
-
-                    ch.Reply ()
-                    executeRenderCommands ()
-
-            GameLoop.start ()
-                (fun () ->
-                    ()
-                )
+            GameLoop.start initial id
+                // server/client
                 (fun time interval curr ->
                     GC.Collect (0, GCCollectionMode.Forced, true)
 
-                    ()
-                ) 
-                (fun t prev curr ->
+                    curr
+                )
+                // client/render
+                (fun t _ curr ->
                     R.clear ()
 
-                    executeRenderCommands ()
-
-                    bufferInfo
-                    |> Seq.iter (fun kvp ->
-                        let vbo, value = kvp.Key, kvp.Value
-                        let size, color = value
-                        let r, g, b = color
-
-                        R.drawColor shaderProgram r g b
-
-                        //R.drawIndices octahedron_idx.Length octahedron_idx vbo)
-                        R.drawVbo 0 size vbo)
+                    curr.clientEntities
+                    |> List.iter (fun x ->
+                        match x with
+                        | Client (_, ent, render) -> render t ent ent                       
+                    )
 
                     R.draw r
                 )
@@ -388,29 +399,59 @@ module Galileo =
         ()
 
     let spawnDefaultRedTriangle () : Async<Triangle> = async {
-        proc.PostAndReply <| fun ch -> ch, fun () ->
-            let datum = DrawTriangle (Vector3 (0.f, 1.f, 0.f), Vector3 (-1.f, -1.f, 0.f), Vector3 (1.f, -1.f, 0.f))
-            addDrawTriangle datum (1.f, 0.f, 0.f)
+        let ent : Triangle = 
+            {
+                data = DrawTriangle (Vector3 (0.f, 1.f, 0.f), Vector3 (-1.f, -1.f, 0.f), Vector3 (1.f, -1.f, 0.f))
+                color = (1.f, 0.f, 0.f)
+            }
 
-        return Triangle 0
+        let sv = Server (ent, fun _ _ -> ent)
+        let cl = Client (id, ent, fun _ _ ent ->
+            ()
+        )
+
+        return ent
     }
 
     let spawnDefaultBlueTriangle () : Async<Triangle> = async {
-        proc.PostAndReply <| fun ch -> ch, fun () ->
-            let datum = DrawTriangle (Vector3 (0.f, -1.f, 0.f), Vector3 (1.f, 1.f, 0.f), Vector3 (-1.f, 1.f, 0.f))
-            addDrawTriangle datum (0.f, 0.f, 1.f)
+        let ent : Triangle = 
+            {
+                data = DrawTriangle (Vector3 (0.f, -1.f, 0.f), Vector3 (1.f, 1.f, 0.f), Vector3 (-1.f, 1.f, 0.f))
+                color = (0.f, 0.f, 1.f)
+            }
 
-        return Triangle 0
+        let sv = Server (ent, fun _ _ -> ent)
+        let cl = Client (id, ent, fun _ _ _ -> ())
+
+        return ent
     }
 
     let spawnDefaultOctahedron () : Async<Octahedron> = async {
-        proc.PostAndReply <| fun ch -> ch, fun () ->
-            addOctahedron (0.f, 1.f, 0.f)
+        let ent : Octahedron =
+            {
+                vertices = octahedron_vtx
+                indices = octahedron_idx
+                color = (0.f, 1.f, 0.f)
+            }
 
-        return Octahedron 0
+        let sv = Server (ent, fun _ _ -> ent)
+        let cl = Client (id, ent, fun _ _ _ -> ())
+
+        return ent
     }
 
+    let lift<'a when 'a :> Entity> (f: 'a -> Entity) sv =
+        match sv with
+        | Server (state, update) ->
+            Server (f (state), fun t x ->
+                let x : 'a = x :> 'a
+                update t x
+            )
+
     let spawnDefaultSphere () : Async<Sphere> = async {
-        return raise <| System.NotImplementedException ()
+        let sv = Server (Sphere (), fun _ x -> x)
+        let cl = Client (id, Sphere (), fun _ _ _ -> ())
+
+        return Sphere ()
     }
 
