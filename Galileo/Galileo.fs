@@ -89,7 +89,19 @@ module R =
     let draw (app: RendererContext) : unit = C """ SDL_GL_SwapWindow ((SDL_Window*)app.Window); """
 
     [<Import; MI (MIO.NoInlining)>]
-    let generateVbo (data: Vector3 []) (size: int) : int =
+    let generateVboVector3 (data: Vector3 []) (size: int) : int =
+        C """
+        GLuint vbo;
+        glGenBuffers (1, &vbo);
+
+        glBindBuffer (GL_ARRAY_BUFFER, vbo);
+
+        glBufferData (GL_ARRAY_BUFFER, size, data, GL_DYNAMIC_DRAW);
+        return vbo;
+        """
+
+    [<Import; MI (MIO.NoInlining)>]
+    let generateVbo (data: single []) (size: int) : int =
         C """
         GLuint vbo;
         glGenBuffers (1, &vbo);
@@ -391,7 +403,7 @@ module Galileo =
         runRenderer <|
             lazy
                 let size = sizeof<Vector3> * ent.vertices.Length
-                let vbo = R.generateVbo ent.vertices size
+                let vbo = R.generateVboVector3 ent.vertices size
 
                 fun shaderProgram t ->
                     let r, g, b = ent.color
@@ -411,7 +423,7 @@ module Galileo =
         runRenderer <|
             lazy
                 let size = sizeof<Vector3> * ent.vertices.Length
-                let vbo = R.generateVbo ent.vertices size
+                let vbo = R.generateVboVector3 ent.vertices size
 
                 fun shaderProgram t ->
                     let r, g, b = ent.color
@@ -428,6 +440,16 @@ module Galileo =
                 indices = octahedron_idx
                 color = (0.f, 1.f, 0.f)
             }
+
+        runRenderer <|
+            lazy
+                let size = ent.vertices.Length * sizeof<single>
+                let vbo = R.generateVbo ent.vertices size
+
+                fun shaderProgram t ->
+                    let r, g, b = ent.color
+                    R.drawColor shaderProgram r g b
+                    R.drawIndices ent.indices.Length ent.indices vbo
 
         return ent
     }
