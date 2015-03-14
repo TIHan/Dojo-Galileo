@@ -8,48 +8,9 @@ open System.Diagnostics
 open Ferop
 
 [<Struct>]
-type Renderer =
+type RendererContext =
     val Window : nativeint
     val GLContext : nativeint
-
-[<Struct>]
-type DrawTriangle =
-    val X : Vector3
-    val Y : Vector3
-    val Z : Vector3
-
-    new (x, y, z) = { X = x; Y = y; Z = z }
- 
-type Server<'a> = Server of state: 'a * update: (int64 -> 'a -> 'a)
-
-type Client<'a, 'b> = Client of map: ('a -> 'b) * state: 'b * render: (float32 -> 'b -> 'b -> unit)
-
-type ClientServer<'a, 'b> =
-    {
-        server: Server<'a>
-        client: Client<'a, 'b>
-    }
-
-type Triangle =
-    {
-        data: DrawTriangle
-        color: float32 * float32 * float32
-    }
-
-type Octahedron =
-    {
-        vertices: single []
-        indices: int []
-        color: float32 * float32 * float32
-    }
-
-type Sphere = Sphere of unit
-
-[<RequireQualifiedAccess>]
-type Entity =
-    | Triangle of Triangle
-    | Octahedron of Octahedron
-    | Sphere of Sphere
 
 [<Ferop>]
 [<ClangOsx (
@@ -90,9 +51,9 @@ module R =
         """
 
     [<Import; MI (MIO.NoInlining)>]
-    let init (window: nativeint) : Renderer =
+    let init (window: nativeint) : RendererContext =
         C """
-        R_Renderer r;
+        R_RendererContext r;
 
         r.Window = window;
 
@@ -113,7 +74,7 @@ module R =
         """
 
     [<Import; MI (MIO.NoInlining)>]
-    let exit (r: Renderer) : int =
+    let exit (r: RendererContext) : int =
         C """
         SDL_GL_DeleteContext (r.GLContext);
         SDL_DestroyWindow ((SDL_Window*)r.Window);
@@ -125,10 +86,10 @@ module R =
     let clear () : unit = C """ glClear (GL_COLOR_BUFFER_BIT); """
 
     [<Import; MI (MIO.NoInlining)>]
-    let draw (app: Renderer) : unit = C """ SDL_GL_SwapWindow ((SDL_Window*)app.Window); """
+    let draw (app: RendererContext) : unit = C """ SDL_GL_SwapWindow ((SDL_Window*)app.Window); """
 
     [<Import; MI (MIO.NoInlining)>]
-    let generateVbo (size: int) (data: single []) : int =
+    let generateVbo (data: Vector3 []) (size: int) : int =
         C """
         GLuint vbo;
         glGenBuffers (1, &vbo);
@@ -310,6 +271,29 @@ module GameLoop =
               RenderFrameCountTime = 0L
               RenderFrameLastCount = 0 }
 
+type Client<'T> = Client of state: 'T
+
+type Triangle =
+    {
+        vertices: Vector3 []
+        color: float32 * float32 * float32
+    }
+
+type Octahedron =
+    {
+        vertices: single []
+        indices: int []
+        color: float32 * float32 * float32
+    }
+
+type Sphere = Sphere of unit
+
+[<RequireQualifiedAccess>]
+type Entity =
+    | Triangle of Triangle
+    | Octahedron of Octahedron
+    | Sphere of Sphere
+
 [<RequireQualifiedAccess>]
 module Galileo =
 
@@ -335,33 +319,54 @@ module Galileo =
             4; 5; 1;
         |]
 
-    let window = ref System.IntPtr.Zero
-
-    let bufferInfo = System.Collections.Generic.Dictionary<int, int * (single * single * single)> ()
-
-    let addDrawTriangle (datum: DrawTriangle) color =
-        let size = sizeof<DrawTriangle>
-
-        let data =
-            [|datum.X;datum.Y;datum.Z|]
-            |> Array.map (fun v -> [|v.X;v.Y;v.Z|])
-            |> Array.reduce Array.append
-
-        let vbo = R.generateVbo size data
-        bufferInfo.Add (vbo, (size, color))
-
-    let addOctahedron color =
-        let size = sizeof<single> * octahedron_vtx.Length
-        let vbo = R.generateVbo size octahedron_vtx
-        bufferInfo.Add (vbo, (size, color))
-
     type Galileo =
         {
-            clientEntities: Client<Entity, Entity> list
+            clientEntities: Client<Entity> list
         }
 
-    let proc = new MailboxProcessor<AsyncReplyChannel<unit> * (unit -> unit)>(fun inbox ->
+    type ClientCommand =
+        | Execute of (int64 -> int64 -> Galileo -> Galileo)
+
+    type RendererCommand =
+        | Execute of (float32 -> Galileo -> Galileo -> unit)
+
+    [<RequireQualifiedAccess>]
+    type Command =
+        | Client of ClientCommand
+        | Renderer of RendererCommand
+
+    let proc = new MailboxProcessor<Command> (fun inbox ->
+        let window = ref System.IntPtr.Zero
+        let clientQueue = System.Collections.Generic.Queue<ClientCommand> ()
+        let rendererQueue = System.Collections.Generic.Queue<RendererCommand> ()
+
         let rec loop () = async {
+            let rec poll () =
+                match inbox.CurrentQueueLength with
+                | 0 -> ()
+                | _ ->
+                    match inbox.Receive () |> Async.RunSynchronously with
+                    | Command.Client cmd -> clientQueue.Enqueue cmd
+                    | Command.Renderer cmd -> rendererQueue.Enqueue cmd
+
+            let rec executeClientMessages time interval state =
+                match clientQueue.Count with
+                | 0 -> state
+                | _ ->
+                    match clientQueue.Dequeue () with
+                    | ClientCommand.Execute f -> 
+                        let state = f time interval state
+                        executeClientMessages time interval state
+
+            let rec executeRendererMessages t prev curr =
+                match rendererQueue.Count with
+                | 0 -> ()
+                | _ ->
+                    match rendererQueue.Dequeue () with
+                    | RendererCommand.Execute f -> 
+                        f t prev curr
+                        executeRendererMessages t prev curr
+
             let r = R.init (!window)
             let shaderProgram = R.loadShaders ()
 
@@ -372,20 +377,17 @@ module Galileo =
 
             GameLoop.start initial id
                 // server/client
-                (fun time interval curr ->
+                (fun time interval state ->
                     GC.Collect (0, GCCollectionMode.Forced, true)
 
-                    curr
+                    poll ()
+                    executeClientMessages time interval state
                 )
                 // client/render
-                (fun t _ curr ->
+                (fun t prev curr ->
                     R.clear ()
 
-                    curr.clientEntities
-                    |> List.iter (fun x ->
-                        match x with
-                        | Client (_, ent, render) -> render t ent ent                       
-                    )
+                    executeRendererMessages t prev curr
 
                     R.draw r
                 )
@@ -394,21 +396,15 @@ module Galileo =
 
     let init () =
         printfn "Begin Initializing Galileo"
-        window := R.createWindow ()
         proc.Start ()
         ()
 
     let spawnDefaultRedTriangle () : Async<Triangle> = async {
         let ent : Triangle = 
             {
-                data = DrawTriangle (Vector3 (0.f, 1.f, 0.f), Vector3 (-1.f, -1.f, 0.f), Vector3 (1.f, -1.f, 0.f))
+                vertices = [|Vector3 (0.f, 1.f, 0.f); Vector3 (-1.f, -1.f, 0.f); Vector3 (1.f, -1.f, 0.f)|]
                 color = (1.f, 0.f, 0.f)
             }
-
-        let sv = Server (ent, fun _ _ -> ent)
-        let cl = Client (id, ent, fun _ _ ent ->
-            ()
-        )
 
         return ent
     }
@@ -416,12 +412,9 @@ module Galileo =
     let spawnDefaultBlueTriangle () : Async<Triangle> = async {
         let ent : Triangle = 
             {
-                data = DrawTriangle (Vector3 (0.f, -1.f, 0.f), Vector3 (1.f, 1.f, 0.f), Vector3 (-1.f, 1.f, 0.f))
+                vertices = [|Vector3 (0.f, -1.f, 0.f); Vector3 (1.f, 1.f, 0.f); Vector3 (-1.f, 1.f, 0.f)|]
                 color = (0.f, 0.f, 1.f)
             }
-
-        let sv = Server (ent, fun _ _ -> ent)
-        let cl = Client (id, ent, fun _ _ _ -> ())
 
         return ent
     }
@@ -434,24 +427,12 @@ module Galileo =
                 color = (0.f, 1.f, 0.f)
             }
 
-        let sv = Server (ent, fun _ _ -> ent)
-        let cl = Client (id, ent, fun _ _ _ -> ())
-
         return ent
     }
 
-    let lift<'a when 'a :> Entity> (f: 'a -> Entity) sv =
-        match sv with
-        | Server (state, update) ->
-            Server (f (state), fun t x ->
-                let x : 'a = x :> 'a
-                update t x
-            )
-
     let spawnDefaultSphere () : Async<Sphere> = async {
-        let sv = Server (Sphere (), fun _ x -> x)
-        let cl = Client (id, Sphere (), fun _ _ _ -> ())
+        let ent : Sphere = Sphere ()
 
-        return Sphere ()
+        return ent
     }
 

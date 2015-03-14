@@ -9,7 +9,11 @@ type Octahedron
 [<Sealed>]
 type Sphere
 
-type Entity<'T> = Entity of 'T
+[<RequireQualifiedAccess>]
+type Entity =
+    | Triangle of Triangle
+    | Octahedron of Octahedron
+    | Sphere of Sphere
 
 [<RequireQualifiedAccess>]
 module Galileo =
