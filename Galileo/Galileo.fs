@@ -79,7 +79,7 @@ type R private () =
         """
 
     [<Import; MI (MIO.NoInlining)>]
-    static member private _DrawBuffer (size: int, vbo: int) : unit =
+    static member private _DrawBufferAsTriangles (size: int, vbo: int) : unit =
         C """
         glBindBuffer (GL_ARRAY_BUFFER, vbo);
         glEnableVertexAttribArray (0);
@@ -99,7 +99,7 @@ type R private () =
         """
 
     [<Import; MI (MIO.NoInlining)>]
-    static member private _DrawElementBuffer (count: int, ebo: int, vbo: int) : unit =
+    static member private _DrawElementBufferAsTriangles (count: int, ebo: int, vbo: int) : unit =
         C """
         glEnableVertexAttribArray (0);
 
@@ -209,9 +209,11 @@ type R private () =
         let id = R._CreateElementBuffer (size, data)
         EBO (id, data.Length)
 
-    static member DrawVBO (VBO (id, size)) : unit = R._DrawBuffer (size, id)
+    static member DrawVBOAsTriangles (VBO (id, size)) : unit = 
+        R._DrawBufferAsTriangles (size, id)
 
-    static member DrawEBO (EBO (eboId, count)) (VBO (vboId, _)) : unit = R._DrawElementBuffer (count, eboId, vboId)
+    static member DrawEBOAsTriangles (EBO (eboId, count)) (VBO (vboId, _)) : unit = 
+        R._DrawElementBufferAsTriangles (count, eboId, vboId)
 
     [<Import; MI (MIO.NoInlining)>]
     static member SetColor (shaderProgram: int) (r: single) (g: single) (b: single) : unit = 
@@ -440,7 +442,7 @@ module Galileo =
                 fun shaderProgram t ->
                     let r, g, b = ent.color
                     R.SetColor shaderProgram r g b
-                    R.DrawVBO vbo
+                    R.DrawVBOAsTriangles vbo
 
         return ent
     }
@@ -458,7 +460,7 @@ module Galileo =
                 fun shaderProgram t ->
                     let r, g, b = ent.color
                     R.SetColor shaderProgram r g b
-                    R.DrawVBO vbo
+                    R.DrawVBOAsTriangles vbo
 
         return ent
     }
@@ -479,7 +481,7 @@ module Galileo =
                 fun shaderProgram t ->
                     let r, g, b = ent.color
                     R.SetColor shaderProgram r g b
-                    R.DrawEBO ebo vbo
+                    R.DrawEBOAsTriangles ebo vbo
 
         return ent
     }
