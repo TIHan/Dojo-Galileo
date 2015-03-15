@@ -58,7 +58,7 @@ module R =
         r.Window = window;
 
         SDL_GL_SetAttribute (SDL_GL_CONTEXT_MAJOR_VERSION, 3);
-        SDL_GL_SetAttribute (SDL_GL_CONTEXT_MINOR_VERSION, 2);
+        SDL_GL_SetAttribute (SDL_GL_CONTEXT_MINOR_VERSION, 3);
         SDL_GL_SetAttribute (SDL_GL_CONTEXT_PROFILE_MASK, SDL_GL_CONTEXT_PROFILE_CORE);
 
         r.GLContext = SDL_GL_CreateContext ((SDL_Window*)r.Window);
@@ -97,6 +97,8 @@ module R =
         glBindBuffer (GL_ARRAY_BUFFER, vbo);
 
         glBufferData (GL_ARRAY_BUFFER, size, data, GL_DYNAMIC_DRAW);
+
+        glBindBuffer (GL_ARRAY_BUFFER, 0);
         return vbo;
         """
 
@@ -109,6 +111,8 @@ module R =
         glBindBuffer (GL_ARRAY_BUFFER, vbo);
 
         glBufferData (GL_ARRAY_BUFFER, size, data, GL_DYNAMIC_DRAW);
+
+        glBindBuffer (GL_ARRAY_BUFFER, 0);
         return vbo;
         """
 
@@ -129,25 +133,20 @@ module R =
 
         glDrawArrays(GL_TRIANGLES, offset, size); // 3 indices starting at 0 -> 1 triangle
         glDisableVertexAttribArray(0);
+        glBindBuffer (GL_ARRAY_BUFFER, 0);
         """
 
     [<Import; MI (MIO.NoInlining)>]
-    let drawIndices (count: int) (indices: int []) (vbo: int) : unit =
+    let drawIndices (count: int) (ibo: int) (vbo: int) : unit =
         C """
-        glBindBuffer (GL_ARRAY_BUFFER, vbo);
         glEnableVertexAttribArray(0);
+        glBindBuffer(GL_ARRAY_BUFFER, vbo);
+        glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 0, (void*)0);
+        glBindBuffer(GL_ARRAY_BUFFER, 0);
 
-        glVertexAttribPointer(
-            0,                  // attribute 0. No particular reason for 0, but must match the layout in the shader.
-            3,                  // size
-            GL_FLOAT,           // type
-            GL_FALSE,           // normalized?
-            0,                  // stride
-            (void*)0            // array buffer offset
-        );
-
-        glDrawElements(GL_TRIANGLES, count, GL_UNSIGNED_INT, indices);
-        glDisableVertexAttribArray(0);
+        glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, ibo);
+        glDrawElements(GL_TRIANGLES, count, GL_UNSIGNED_INT, (void*)0);
+        glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, 0);
         """
 
     [<Import; MI (MIO.NoInlining)>]
@@ -336,8 +335,9 @@ module Galileo =
     type Command =
         | Renderer of RendererCommand
 
+    let window = ref IntPtr.Zero
     let proc = new MailboxProcessor<Command> (fun inbox ->
-        let window = R.createWindow ()
+        let window = !window
         let rendererQueue = System.Collections.Generic.Queue<RendererCommand> ()
 
         let drawCalls = ResizeArray<(int -> float32 -> unit) Lazy> ()
@@ -387,6 +387,7 @@ module Galileo =
 
     let init () =
         printfn "Begin Initializing Galileo"
+        window := R.createWindow ()
         proc.Start ()
         ()
 
@@ -445,11 +446,12 @@ module Galileo =
             lazy
                 let size = ent.vertices.Length * sizeof<single>
                 let vbo = R.generateVbo ent.vertices size
+                let ibo = R.generateVbo (ent.indices |> Array.map single) (ent.indices.Length * sizeof<single>)
 
                 fun shaderProgram t ->
                     let r, g, b = ent.color
                     R.drawColor shaderProgram r g b
-                    R.drawIndices ent.indices.Length ent.indices vbo
+                    R.drawIndices ent.indices.Length ibo vbo
 
         return ent
     }
