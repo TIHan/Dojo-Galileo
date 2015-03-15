@@ -2,11 +2,15 @@
 
 uniform vec4 uni_color;
 
-in vec3 normal;
+in vec3 normal_cameraspace;
+in vec3 direction_cameraspace;
 
 out vec4 out_color;
 
 void main ()
 {
-    out_color = uni_color;
+	vec3 n = normalize (normal_cameraspace);
+	vec3 l = normalize (direction_cameraspace);
+	float cosTheta = clamp (dot (n, l), 0, 1);
+    out_color = uni_color * cosTheta;
 }

@@ -334,8 +334,29 @@ type R private () =
     [<Import; MI (MIO.NoInlining)>]
     static member SetMVP (shaderProgram: int) (mvp: Matrix4x4) : unit =
         C """
-        GLuint uni_mvp = glGetUniformLocation (shaderProgram, "uni_mvp");
-        glUniformMatrix4fv (uni_mvp, 1, GL_FALSE, &mvp);
+        GLuint uni = glGetUniformLocation (shaderProgram, "uni_mvp");
+        glUniformMatrix4fv (uni, 1, GL_FALSE, &mvp);
+        """
+
+    [<Import; MI (MIO.NoInlining)>]
+    static member SetView (shaderProgram: int) (view: Matrix4x4) : unit =
+        C """
+        GLuint uni = glGetUniformLocation (shaderProgram, "uni_view");
+        glUniformMatrix4fv (uni, 1, GL_FALSE, &view);
+        """
+
+    [<Import; MI (MIO.NoInlining)>]
+    static member SetModel (shaderProgram: int) (model: Matrix4x4) : unit =
+        C """
+        GLuint uni = glGetUniformLocation (shaderProgram, "uni_model");
+        glUniformMatrix4fv (uni, 1, GL_FALSE, &model);
+        """
+
+    [<Import; MI (MIO.NoInlining)>]
+    static member SetCameraPosition (shaderProgram: int) (cameraPosition: Vector3) : unit =
+        C """
+        GLuint uni = glGetUniformLocation (shaderProgram, "uni_cameraPosition");
+        glUniform3f (uni, cameraPosition.X, cameraPosition.Y, cameraPosition.Z);
         """
 
     static member LoadShaders () =
@@ -527,12 +548,17 @@ module Galileo =
                 (fun t prev curr ->
                     R.Clear ()
 
+                    let cameraPosition = Vector3 (2.f, 2.f, 3.f)
+
                     let projection = Matrix4x4.CreatePerspectiveFieldOfView (90.f * 0.0174532925f, (400.f / 400.f), 0.1f, 100.f) |> Matrix4x4.Transpose
-                    let view = Matrix4x4.CreateLookAt (Vector3 (4.f, 3.f, 3.f), Vector3 (0.f, 0.f, 0.f), Vector3 (0.f, 1.f, 0.f)) |> Matrix4x4.Transpose
+                    let view = Matrix4x4.CreateLookAt (cameraPosition, Vector3 (0.f, 0.f, 0.f), Vector3 (0.f, 1.f, 0.f)) |> Matrix4x4.Transpose
                     let model = Matrix4x4.Identity
                     let mvp = projection * view * model |> Matrix4x4.Transpose
 
                     R.SetMVP shaderProgram mvp
+                    R.SetView shaderProgram view
+                    R.SetModel shaderProgram model
+                    R.SetCameraPosition shaderProgram cameraPosition
 
                     drawCalls
                     |> Seq.iter (fun x ->
