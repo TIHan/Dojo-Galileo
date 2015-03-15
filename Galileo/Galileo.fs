@@ -117,6 +117,20 @@ module R =
         """
 
     [<Import; MI (MIO.NoInlining)>]
+    let generateVboInt (data: int []) (size: int) : int =
+        C """
+        GLuint vbo;
+        glGenBuffers (1, &vbo);
+
+        glBindBuffer (GL_ARRAY_BUFFER, vbo);
+
+        glBufferData (GL_ARRAY_BUFFER, size, data, GL_DYNAMIC_DRAW);
+
+        glBindBuffer (GL_ARRAY_BUFFER, 0);
+        return vbo;
+        """
+
+    [<Import; MI (MIO.NoInlining)>]
     let drawVbo (offset: int) (size: int) (vbo: int) : unit =
         C """
         glBindBuffer (GL_ARRAY_BUFFER, vbo);
@@ -141,11 +155,11 @@ module R =
         C """
         glEnableVertexAttribArray(0);
         glBindBuffer(GL_ARRAY_BUFFER, vbo);
-        glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 0, (void*)0);
+        glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 0, 0);
         glBindBuffer(GL_ARRAY_BUFFER, 0);
 
         glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, ibo);
-        glDrawElements(GL_TRIANGLES, count, GL_UNSIGNED_INT, (void*)0);
+        glDrawElements(GL_TRIANGLES, count, GL_UNSIGNED_INT, 0);
         glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, 0);
         """
 
@@ -446,7 +460,7 @@ module Galileo =
             lazy
                 let size = ent.vertices.Length * sizeof<single>
                 let vbo = R.generateVbo ent.vertices size
-                let ibo = R.generateVbo (ent.indices |> Array.map single) (ent.indices.Length * sizeof<single>)
+                let ibo = R.generateVboInt ent.indices (ent.indices.Length * sizeof<int>)
 
                 fun shaderProgram t ->
                     let r, g, b = ent.color
