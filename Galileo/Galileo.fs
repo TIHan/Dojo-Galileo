@@ -12,6 +12,9 @@ type RendererContext =
     val Window : nativeint
     val GLContext : nativeint
 
+type VBO = VBO of id: int * size: int
+type EBO = EBO of id: int * count: int
+
 [<Ferop>]
 [<ClangOsx (
     "-DGL_GLEXT_PROTOTYPES -I/Library/Frameworks/SDL2.framework/Headers",
@@ -34,109 +37,54 @@ type RendererContext =
 #   include <GL/wglew.h>
 #endif
 """)>]
-
-module R = 
+type R private () = 
 
     [<Import; MI (MIO.NoInlining)>]
-    let createWindow () : nativeint =
+    static member private _CreateBuffer_float32 (size: int, data: float32 []) : int =
         C """
-        SDL_Init (SDL_INIT_VIDEO);
-        return
-        SDL_CreateWindow(
-            "Galileo",
-            SDL_WINDOWPOS_UNDEFINED,
-            SDL_WINDOWPOS_UNDEFINED,
-            600, 600,
-            SDL_WINDOW_OPENGL);
-        """
+        GLuint buffer;
 
-    [<Import; MI (MIO.NoInlining)>]
-    let init (window: nativeint) : RendererContext =
-        C """
-        R_RendererContext r;
-
-        r.Window = window;
-
-        SDL_GL_SetAttribute (SDL_GL_CONTEXT_MAJOR_VERSION, 3);
-        SDL_GL_SetAttribute (SDL_GL_CONTEXT_MINOR_VERSION, 3);
-        SDL_GL_SetAttribute (SDL_GL_CONTEXT_PROFILE_MASK, SDL_GL_CONTEXT_PROFILE_CORE);
-
-        r.GLContext = SDL_GL_CreateContext ((SDL_Window*)r.Window);
-        SDL_GL_SetSwapInterval (0);
-
-        #if defined(__GNUC__)
-        #else
-        glewExperimental = GL_TRUE;
-        glewInit ();
-        #endif
-
-        return r;
-        """
-
-    [<Import; MI (MIO.NoInlining)>]
-    let exit (r: RendererContext) : int =
-        C """
-        SDL_GL_DeleteContext (r.GLContext);
-        SDL_DestroyWindow ((SDL_Window*)r.Window);
-        SDL_Quit ();
-        return 0;
-        """
-    
-    [<Import; MI (MIO.NoInlining)>]
-    let clear () : unit = C """ glClear (GL_COLOR_BUFFER_BIT); """
-
-    [<Import; MI (MIO.NoInlining)>]
-    let draw (app: RendererContext) : unit = C """ SDL_GL_SwapWindow ((SDL_Window*)app.Window); """
-
-    [<Import; MI (MIO.NoInlining)>]
-    let generateVboVector3 (data: Vector3 []) (size: int) : int =
-        C """
-        GLuint vbo;
-        glGenBuffers (1, &vbo);
-
-        glBindBuffer (GL_ARRAY_BUFFER, vbo);
-
+        glGenBuffers (1, &buffer);
+        glBindBuffer (GL_ARRAY_BUFFER, buffer);
         glBufferData (GL_ARRAY_BUFFER, size, data, GL_DYNAMIC_DRAW);
-
         glBindBuffer (GL_ARRAY_BUFFER, 0);
-        return vbo;
+
+        return buffer;
         """
 
     [<Import; MI (MIO.NoInlining)>]
-    let generateVbo (data: single []) (size: int) : int =
+    static member private _CreateBuffer_vector3 (size: int, data: Vector3 []) : int =
         C """
-        GLuint vbo;
-        glGenBuffers (1, &vbo);
+        GLuint buffer;
 
-        glBindBuffer (GL_ARRAY_BUFFER, vbo);
-
+        glGenBuffers (1, &buffer);
+        glBindBuffer (GL_ARRAY_BUFFER, buffer);
         glBufferData (GL_ARRAY_BUFFER, size, data, GL_DYNAMIC_DRAW);
-
         glBindBuffer (GL_ARRAY_BUFFER, 0);
-        return vbo;
+
+        return buffer;
         """
 
     [<Import; MI (MIO.NoInlining)>]
-    let generateVboInt (data: int []) (size: int) : int =
+    static member private _CreateElementBuffer (size: int, data: int []) : int =
         C """
-        GLuint vbo;
-        glGenBuffers (1, &vbo);
+        GLuint buffer;
 
-        glBindBuffer (GL_ARRAY_BUFFER, vbo);
+        glGenBuffers (1, &buffer);
+        glBindBuffer (GL_ELEMENT_ARRAY_BUFFER, buffer);
+        glBufferData (GL_ELEMENT_ARRAY_BUFFER, size, data, GL_DYNAMIC_DRAW);
+        glBindBuffer (GL_ELEMENT_ARRAY_BUFFER, 0);
 
-        glBufferData (GL_ARRAY_BUFFER, size, data, GL_DYNAMIC_DRAW);
-
-        glBindBuffer (GL_ARRAY_BUFFER, 0);
-        return vbo;
+        return buffer;
         """
 
     [<Import; MI (MIO.NoInlining)>]
-    let drawVbo (offset: int) (size: int) (vbo: int) : unit =
+    static member private _DrawBuffer (size: int, vbo: int) : unit =
         C """
         glBindBuffer (GL_ARRAY_BUFFER, vbo);
-        glEnableVertexAttribArray(0);
+        glEnableVertexAttribArray (0);
 
-        glVertexAttribPointer(
+        glVertexAttribPointer (
             0,                  // attribute 0. No particular reason for 0, but must match the layout in the shader.
             3,                  // size
             GL_FLOAT,           // type
@@ -145,33 +93,27 @@ module R =
             (void*)0            // array buffer offset
         );
 
-        glDrawArrays(GL_TRIANGLES, offset, size); // 3 indices starting at 0 -> 1 triangle
-        glDisableVertexAttribArray(0);
+        glDrawArrays (GL_TRIANGLES, 0, size);
+        glDisableVertexAttribArray (0);
         glBindBuffer (GL_ARRAY_BUFFER, 0);
         """
 
     [<Import; MI (MIO.NoInlining)>]
-    let drawIndices (count: int) (ibo: int) (vbo: int) : unit =
+    static member private _DrawElementBuffer (count: int, ebo: int, vbo: int) : unit =
         C """
-        glEnableVertexAttribArray(0);
-        glBindBuffer(GL_ARRAY_BUFFER, vbo);
-        glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 0, 0);
-        glBindBuffer(GL_ARRAY_BUFFER, 0);
+        glEnableVertexAttribArray (0);
 
-        glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, ibo);
-        glDrawElements(GL_TRIANGLES, count, GL_UNSIGNED_INT, 0);
-        glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, 0);
+        glBindBuffer (GL_ARRAY_BUFFER, vbo);
+        glVertexAttribPointer (0, 3, GL_FLOAT, GL_FALSE, 0, 0);
+        glBindBuffer (GL_ARRAY_BUFFER, 0);
+
+        glBindBuffer (GL_ELEMENT_ARRAY_BUFFER, ebo);
+        glDrawElements (GL_TRIANGLES, count, GL_UNSIGNED_INT, 0);
+        glBindBuffer (GL_ELEMENT_ARRAY_BUFFER, 0);
         """
 
     [<Import; MI (MIO.NoInlining)>]
-    let drawColor (shaderProgram: int) (r: single) (g: single) (b: single) : unit = 
-        C """
-        GLint uni_color = glGetUniformLocation (shaderProgram, "uni_color");
-        glUniform4f (uni_color, r, g, b, 0.0f);
-        """
-
-    [<Import; MI (MIO.NoInlining)>]
-    let loadRawShaders (vertexSource: byte[]) (fragmentSource: byte[]) : int =
+    static member private _LoadShaders (vertexSource: byte[]) (fragmentSource: byte[]) : int =
         C """
         GLuint vertexShader = glCreateShader (GL_VERTEX_SHADER);
         glShaderSource (vertexShader, 1, (const GLchar*const*)&vertexSource, NULL);    
@@ -201,11 +143,88 @@ module R =
         return shaderProgram;
         """
 
-    let loadShaders () =
+    [<Import; MI (MIO.NoInlining)>]
+    static member CreateWindow () : nativeint =
+        C """
+        SDL_Init (SDL_INIT_VIDEO);
+        return
+        SDL_CreateWindow(
+            "Galileo",
+            SDL_WINDOWPOS_UNDEFINED,
+            SDL_WINDOWPOS_UNDEFINED,
+            600, 600,
+            SDL_WINDOW_OPENGL);
+        """
+
+    [<Import; MI (MIO.NoInlining)>]
+    static member Init (window: nativeint) : RendererContext =
+        C """
+        R_RendererContext r;
+
+        r.Window = window;
+
+        SDL_GL_SetAttribute (SDL_GL_CONTEXT_MAJOR_VERSION, 3);
+        SDL_GL_SetAttribute (SDL_GL_CONTEXT_MINOR_VERSION, 3);
+        SDL_GL_SetAttribute (SDL_GL_CONTEXT_PROFILE_MASK, SDL_GL_CONTEXT_PROFILE_CORE);
+
+        r.GLContext = SDL_GL_CreateContext ((SDL_Window*)r.Window);
+        SDL_GL_SetSwapInterval (0);
+
+        #if defined(__GNUC__)
+        #else
+        glewExperimental = GL_TRUE;
+        glewInit ();
+        #endif
+
+        return r;
+        """
+
+    [<Import; MI (MIO.NoInlining)>]
+    static member Exit (r: RendererContext) : int =
+        C """
+        SDL_GL_DeleteContext (r.GLContext);
+        SDL_DestroyWindow ((SDL_Window*)r.Window);
+        SDL_Quit ();
+        return 0;
+        """
+    
+    [<Import; MI (MIO.NoInlining)>]
+    static member Clear () : unit = C """ glClear (GL_COLOR_BUFFER_BIT); """
+
+    [<Import; MI (MIO.NoInlining)>]
+    static member Draw (r: RendererContext) : unit = C """ SDL_GL_SwapWindow ((SDL_Window*)r.Window); """
+
+    static member CreateVBO (data: float32 []) : VBO =
+        let size = data.Length * sizeof<float32>
+        let id = R._CreateBuffer_float32 (size, data)
+        VBO (id, size)
+
+    static member CreateVBO (data: Vector3 []) : VBO =
+        let size = data.Length * sizeof<Vector3>
+        let id = R._CreateBuffer_vector3 (size, data)
+        VBO (id, size)
+
+    static member CreateEBO (data: int []) : EBO =
+        let size = data.Length * sizeof<int>
+        let id = R._CreateElementBuffer (size, data)
+        EBO (id, data.Length)
+
+    static member DrawVBO (VBO (id, size)) : unit = R._DrawBuffer (size, id)
+
+    static member DrawEBO (EBO (eboId, count)) (VBO (vboId, _)) : unit = R._DrawElementBuffer (count, eboId, vboId)
+
+    [<Import; MI (MIO.NoInlining)>]
+    static member SetColor (shaderProgram: int) (r: single) (g: single) (b: single) : unit = 
+        C """
+        GLint uni_color = glGetUniformLocation (shaderProgram, "uni_color");
+        glUniform4f (uni_color, r, g, b, 0.0f);
+        """
+
+    static member LoadShaders () =
         let mutable vertexFile = ([|0uy|]) |> Array.append (File.ReadAllBytes ("v.vertex"))
         let mutable fragmentFile = ([|0uy|]) |> Array.append (File.ReadAllBytes ("f.fragment"))
 
-        loadRawShaders vertexFile fragmentFile
+        R._LoadShaders vertexFile fragmentFile
 
 // http://gafferongames.com/game-physics/fix-your-timestep/
 module GameLoop =
@@ -373,8 +392,8 @@ module Galileo =
                         drawCalls.Add f
                         executeRendererMessages ()
 
-            let r = R.init window
-            let shaderProgram = R.loadShaders ()
+            let r = R.Init window
+            let shaderProgram = R.LoadShaders ()
 
             GameLoop.start () id
                 // server/client
@@ -388,20 +407,20 @@ module Galileo =
                 )
                 // client/render
                 (fun t prev curr ->
-                    R.clear ()
+                    R.Clear ()
 
                     drawCalls
                     |> Seq.iter (fun x ->
                         x.Force() shaderProgram t)
 
-                    R.draw r
+                    R.Draw r
                 )
         }
         loop ())
 
     let init () =
         printfn "Begin Initializing Galileo"
-        window := R.createWindow ()
+        window := R.CreateWindow ()
         proc.Start ()
         ()
 
@@ -417,13 +436,11 @@ module Galileo =
 
         runRenderer <|
             lazy
-                let size = sizeof<Vector3> * ent.vertices.Length
-                let vbo = R.generateVboVector3 ent.vertices size
-
+                let vbo = R.CreateVBO ent.vertices
                 fun shaderProgram t ->
                     let r, g, b = ent.color
-                    R.drawColor shaderProgram r g b
-                    R.drawVbo 0 size vbo
+                    R.SetColor shaderProgram r g b
+                    R.DrawVBO vbo
 
         return ent
     }
@@ -437,13 +454,11 @@ module Galileo =
 
         runRenderer <|
             lazy
-                let size = sizeof<Vector3> * ent.vertices.Length
-                let vbo = R.generateVboVector3 ent.vertices size
-
+                let vbo = R.CreateVBO ent.vertices
                 fun shaderProgram t ->
                     let r, g, b = ent.color
-                    R.drawColor shaderProgram r g b
-                    R.drawVbo 0 size vbo
+                    R.SetColor shaderProgram r g b
+                    R.DrawVBO vbo
 
         return ent
     }
@@ -458,14 +473,13 @@ module Galileo =
 
         runRenderer <|
             lazy
-                let size = ent.vertices.Length * sizeof<single>
-                let vbo = R.generateVbo ent.vertices size
-                let ibo = R.generateVboInt ent.indices (ent.indices.Length * sizeof<int>)
+                let vbo = R.CreateVBO ent.vertices
+                let ebo = R.CreateEBO ent.indices
 
                 fun shaderProgram t ->
                     let r, g, b = ent.color
-                    R.drawColor shaderProgram r g b
-                    R.drawIndices ent.indices.Length ibo vbo
+                    R.SetColor shaderProgram r g b
+                    R.DrawEBO ebo vbo
 
         return ent
     }
