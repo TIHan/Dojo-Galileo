@@ -37,7 +37,17 @@ type EBO = EBO of id: int * count: int
 #   include <GL/wglew.h>
 #endif
 """)>]
+[<Source ("""
+char VertexShaderErrorMessage[65536];
+char FragmentShaderErrorMessage[65536];
+char ProgramErrorMessage[65536];
+""")>]
 type R private () = 
+
+    [<Export>]
+    static member private Failwith (size: int, ptr: nativeptr<sbyte>) : unit =
+        let str = String (ptr)
+        failwith str
 
     [<Import; MI (MIO.NoInlining)>]
     static member private _CreateBuffer_float32 (size: int, data: float32 []) : int =
@@ -160,23 +170,73 @@ type R private () =
     [<Import; MI (MIO.NoInlining)>]
     static member private _LoadShaders (vertexSource: byte[]) (fragmentSource: byte[]) : int =
         C """
-        GLuint vertexShader = glCreateShader (GL_VERTEX_SHADER);
-        glShaderSource (vertexShader, 1, (const GLchar*const*)&vertexSource, NULL);    
-        glCompileShader (vertexShader);
+        // Create the shaders
+        GLuint VertexShaderID = glCreateShader(GL_VERTEX_SHADER);
+        GLuint FragmentShaderID = glCreateShader(GL_FRAGMENT_SHADER);
 
-        GLuint fragmentShader = glCreateShader (GL_FRAGMENT_SHADER);
-        glShaderSource (fragmentShader, 1, (const GLchar*const*)&fragmentSource, NULL);
-        glCompileShader (fragmentShader);
+        GLint Result = GL_FALSE;
+        int InfoLogLength;
 
-        /******************************************************/
 
-        GLuint shaderProgram = glCreateProgram ();
-        glAttachShader (shaderProgram, vertexShader);
-        glAttachShader (shaderProgram, fragmentShader);
 
-        glLinkProgram (shaderProgram);
+        // Compile Vertex Shader
+        glShaderSource(VertexShaderID, 1, &vertexSource, NULL);
+        glCompileShader(VertexShaderID);
 
-        glUseProgram (shaderProgram);
+        // Check Vertex Shader
+        glGetShaderiv(VertexShaderID, GL_COMPILE_STATUS, &Result);
+        glGetShaderiv(VertexShaderID, GL_INFO_LOG_LENGTH, &InfoLogLength);
+        if ( InfoLogLength > 0 ){
+            glGetShaderInfoLog(VertexShaderID, InfoLogLength, &InfoLogLength, &VertexShaderErrorMessage[0]);
+            if (InfoLogLength > 0)
+            {
+                R_Failwith(InfoLogLength, &VertexShaderErrorMessage[0]);
+            }
+            for (int i = 0; i < 65536; ++i) { VertexShaderErrorMessage[i] = '\0'; }
+        }
+
+
+
+        // Compile Fragment Shader
+        glShaderSource(FragmentShaderID, 1, &fragmentSource, NULL);
+        glCompileShader(FragmentShaderID);
+
+        // Check Fragment Shader
+        glGetShaderiv(FragmentShaderID, GL_COMPILE_STATUS, &Result);
+        glGetShaderiv(FragmentShaderID, GL_INFO_LOG_LENGTH, &InfoLogLength);
+        if ( InfoLogLength > 0 ){
+            glGetShaderInfoLog(FragmentShaderID, InfoLogLength, &InfoLogLength, &FragmentShaderErrorMessage[0]);
+            if (InfoLogLength > 0)
+            {
+                R_Failwith(InfoLogLength, &FragmentShaderErrorMessage[0]);
+            }
+            for (int i = 0; i < 65536; ++i) { FragmentShaderErrorMessage[i] = '\0'; }
+        }
+
+
+
+        // Link the program
+        printf("Linking program\n");
+        GLuint ProgramID = glCreateProgram();
+        glAttachShader(ProgramID, VertexShaderID);
+        glAttachShader(ProgramID, FragmentShaderID);
+
+
+        glLinkProgram(ProgramID);
+
+        // Check the program
+        glGetProgramiv(ProgramID, GL_LINK_STATUS, &Result);
+        glGetProgramiv(ProgramID, GL_INFO_LOG_LENGTH, &InfoLogLength);
+        if ( InfoLogLength > 0 ){
+            glGetProgramInfoLog(ProgramID, InfoLogLength, &InfoLogLength, &ProgramErrorMessage[0]);
+            if (InfoLogLength > 0)
+            {
+                R_Failwith(InfoLogLength, &ProgramErrorMessage[0]);
+            }
+            for (int i = 0; i < 65536; ++i) { ProgramErrorMessage[i] = '\0'; }
+        }
+
+        glUseProgram (ProgramID);
 
         /******************************************************/
 
@@ -185,7 +245,7 @@ type R private () =
 
         glBindVertexArray (vao);
 
-        return shaderProgram;
+        return ProgramID;
         """
 
     [<Import; MI (MIO.NoInlining)>]
@@ -487,6 +547,7 @@ module Galileo =
         printfn "Begin Initializing Galileo"
         window := R.CreateWindow ()
         proc.Start ()
+        proc.Error.Add (fun ex -> printfn "%A" ex)
         ()
 
     let runRenderer (f: (int -> float32 -> unit) Lazy) =
