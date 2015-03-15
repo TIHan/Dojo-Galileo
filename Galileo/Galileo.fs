@@ -82,8 +82,8 @@ type R private () =
     static member private _DrawBufferAsTriangles (size: int, vbo: int) : unit =
         C """
         glBindBuffer (GL_ARRAY_BUFFER, vbo);
-        glEnableVertexAttribArray (0);
 
+        glEnableVertexAttribArray (0);
         glVertexAttribPointer (
             0,                  // attribute 0. No particular reason for 0, but must match the layout in the shader.
             3,                  // size
@@ -93,7 +93,52 @@ type R private () =
             (void*)0            // array buffer offset
         );
 
+        glEnableVertexAttribArray (1);
+        glVertexAttribPointer (
+            1,                  // attribute 0. No particular reason for 0, but must match the layout in the shader.
+            3,                  // size
+            GL_FLOAT,           // type
+            GL_FALSE,           // normalized?
+            0,                  // stride
+            (void*)0            // array buffer offset
+        );
+
         glDrawArrays (GL_TRIANGLES, 0, size);
+
+        glDisableVertexAttribArray (1);
+        glDisableVertexAttribArray (0);
+        glBindBuffer (GL_ARRAY_BUFFER, 0);
+        """
+
+    // FIXME:
+    [<Import; MI (MIO.NoInlining)>]
+    static member private _DrawBufferAsTrianglesWithNBO (size: int, vbo: int, nbo: int) : unit =
+        C """
+        glEnableVertexAttribArray (0);
+        glBindBuffer (GL_ARRAY_BUFFER, vbo);
+        glVertexAttribPointer (
+            0,                  // attribute 0. No particular reason for 0, but must match the layout in the shader.
+            3,                  // size
+            GL_FLOAT,           // type
+            GL_FALSE,           // normalized?
+            0,                  // stride
+            (void*)0            // array buffer offset
+        );
+
+        glEnableVertexAttribArray (1);
+        glBindBuffer (GL_ARRAY_BUFFER, nbo);
+        glVertexAttribPointer (
+            1,                  // attribute 0. No particular reason for 0, but must match the layout in the shader.
+            3,                  // size
+            GL_FLOAT,           // type
+            GL_FALSE,           // normalized?
+            0,                  // stride
+            (void*)0            // array buffer offset
+        );
+
+        glDrawArrays (GL_TRIANGLES, 0, size);
+
+        glDisableVertexAttribArray (1);
         glDisableVertexAttribArray (0);
         glBindBuffer (GL_ARRAY_BUFFER, 0);
         """
@@ -211,6 +256,10 @@ type R private () =
 
     static member DrawVBOAsTriangles (VBO (id, size)) : unit = 
         R._DrawBufferAsTriangles (size, id)
+
+    // FIXME:
+    static member DrawVBOAsTrianglesWithNBO (VBO (id, size)) nbo : unit = 
+        R._DrawBufferAsTrianglesWithNBO (size, id, nbo)
 
     static member DrawEBOAsTriangles (EBO (eboId, count)) (VBO (vboId, _)) : unit = 
         R._DrawElementBufferAsTriangles (count, eboId, vboId)
@@ -332,7 +381,7 @@ type Triangle =
 
 type Octahedron =
     {
-        vertices: single []
+        vertices: Vector3 []
         indices: int []
         color: float32 * float32 * float32
     }
@@ -350,12 +399,12 @@ module Galileo =
 
     let octahedron_vtx = 
         [|
-           0.0f; -1.0f;  0.0f;
-           1.0f;  0.0f;  0.0f;
-           0.0f;  0.0f;  1.0f;
-          -1.0f;  0.0f;  0.0f;
-           0.0f;  0.0f; -1.0f;
-           0.0f;  1.0f;  0.0f
+           Vector3 (0.0f, -1.0f,  0.0f)
+           Vector3 (1.0f,  0.0f,  0.0f)
+           Vector3 (0.0f,  0.0f,  1.0f)
+           Vector3 (-1.0f, 0.0f,  0.0f)
+           Vector3 (0.0f,  0.0f, -1.0f)
+           Vector3 (0.0f,  1.0f,  0.0f)
         |]
 
     let octahedron_idx =
@@ -489,13 +538,44 @@ module Galileo =
 
         runRenderer <|
             lazy
-                let vbo = R.CreateVBO ent.vertices
-                let ebo = R.CreateEBO ent.indices
+                let vertices =
+                    ent.indices
+                    |> Array.map (fun i -> ent.vertices.[i])
+
+                let trianglesLength = vertices.Length / 3
+                let triangles = Array.zeroCreate<Vector3 * Vector3 * Vector3> trianglesLength
+
+                for i = 0 to trianglesLength - 1 do
+                    let v1 = vertices.[0 + (i * 3)]
+                    let v2 = vertices.[1 + (i * 3)]
+                    let v3 = vertices.[2 + (i * 3)]
+                    triangles.[i] <- (v1, v2, v3)
+
+                let triangleNormal (v1, v2, v3) = Vector3.Cross (v2 - v1, v3 - v1) |> Vector3.Normalize
+
+                let normals =
+                    vertices
+                    |> Array.map (fun v ->
+                        match triangles |> Array.filter (fun (v1, v2, v3) -> v.Equals v1 || v.Equals v2 || v.Equals v3) with
+                        | trs ->
+                            trs
+                            |> Array.map triangleNormal
+                            |> Array.reduce ((+))
+                            |> Vector3.Normalize
+                    )
+
+                let (VBO (nbo,_)) = R.CreateVBO normals
+                let vbo = R.CreateVBO vertices
+                    
+                //let vbo = R.CreateVBO ent.vertices
+                //let ebo = R.CreateEBO ent.indices
 
                 fun shaderProgram t ->
                     let r, g, b = ent.color
                     R.SetColor shaderProgram r g b
-                    R.DrawEBOAsTriangles ebo vbo
+                    R.DrawVBOAsTrianglesWithNBO vbo nbo
+
+                    //R.DrawEBOAsTriangles ebo vbo
 
         return ent
     }
