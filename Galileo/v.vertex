@@ -1,11 +1,10 @@
 #version 330 core
 
-// Input vertex data, different for all executions of this shader.
-layout(location = 0) in vec3 vertexPosition_modelspace;
+uniform mat4 uni_mvp;
 
-void main(){
+layout(location = 0) in vec3 in_position_xyz;
 
-    gl_Position.xyz = vertexPosition_modelspace;
-    gl_Position.w = 1.0;
-
+void main ()
+{
+	gl_Position = uni_mvp * vec4 (in_position_xyz, 1);
 }

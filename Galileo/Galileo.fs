@@ -22,9 +22,9 @@ type EBO = EBO of id: int * count: int
 )>]
 [<GccLinux ("-I../../include/SDL2", "-lSDL2")>]
 #if __64BIT__
-[<MsvcWin (""" /I ..\include\SDL2 /I ..\include ..\lib\win\x64\SDL2.lib ..\lib\win\x64\SDL2main.lib ..\lib\win\x64\glew32.lib opengl32.lib """)>]
+[<MsvcWin ("""/O2 /I ..\include\SDL2 /I ..\include ..\lib\win\x64\SDL2.lib ..\lib\win\x64\SDL2main.lib ..\lib\win\x64\glew32.lib opengl32.lib """)>]
 #else
-[<MsvcWin (""" /I  ..\include\SDL2 /I  ..\include  ..\lib\win\x86\SDL2.lib  ..\lib\win\x86\SDL2main.lib  ..\lib\win\x86\glew32.lib opengl32.lib """)>]
+[<MsvcWin ("""/O2 /I  ..\include\SDL2 /I  ..\include  ..\lib\win\x86\SDL2.lib  ..\lib\win\x86\SDL2main.lib  ..\lib\win\x86\glew32.lib opengl32.lib """)>]
 #endif
 [<Header ("""
 #include <stdio.h>
@@ -222,6 +222,13 @@ type R private () =
         glUniform4f (uni_color, r, g, b, 0.0f);
         """
 
+    [<Import; MI (MIO.NoInlining)>]
+    static member SetMVP (shaderProgram: int) (mvp: Matrix4x4) : unit =
+        C """
+        GLuint uni_mvp = glGetUniformLocation (shaderProgram, "uni_mvp");
+        glUniformMatrix4fv (uni_mvp, 1, GL_FALSE, &mvp);
+        """
+
     static member LoadShaders () =
         let mutable vertexFile = ([|0uy|]) |> Array.append (File.ReadAllBytes ("v.vertex"))
         let mutable fragmentFile = ([|0uy|]) |> Array.append (File.ReadAllBytes ("f.fragment"))
@@ -410,6 +417,13 @@ module Galileo =
                 // client/render
                 (fun t prev curr ->
                     R.Clear ()
+
+                    let projection = Matrix4x4.CreatePerspectiveFieldOfView (90.f * 0.0174532925f, (400.f / 400.f), 0.1f, 100.f) |> Matrix4x4.Transpose
+                    let view = Matrix4x4.CreateLookAt (Vector3 (4.f, 3.f, 3.f), Vector3 (0.f, 0.f, 0.f), Vector3 (0.f, 1.f, 0.f)) |> Matrix4x4.Transpose
+                    let model = Matrix4x4.Identity
+                    let mvp = projection * view * model |> Matrix4x4.Transpose
+
+                    R.SetMVP shaderProgram mvp
 
                     drawCalls
                     |> Seq.iter (fun x ->
