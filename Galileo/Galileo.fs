@@ -294,7 +294,18 @@ type R private () =
         """
     
     [<Import; MI (MIO.NoInlining)>]
-    static member Clear () : unit = C """ glClear (GL_COLOR_BUFFER_BIT); """
+    static member Clear () : unit = C """ 
+    glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+    
+	// Enable depth test
+	glEnable(GL_DEPTH_TEST);
+	// Accept fragment if it closer to the camera than the former one
+	//glDepthFunc(GL_LESS); 
+
+	// Cull triangles which normal is not towards the camera
+	//glEnable(GL_CULL_FACE);
+    
+    """
 
     [<Import; MI (MIO.NoInlining)>]
     static member Draw (r: RendererContext) : unit = C """ SDL_GL_SwapWindow ((SDL_Window*)r.Window); """
