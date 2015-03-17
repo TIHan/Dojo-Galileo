@@ -55,10 +55,6 @@ type R =
 
     static member CreateVAO : unit -> unit
 
-    static member SetShaderUniformVector4 : uniform: ShaderUniform -> v: Vector4 -> unit
-
-    static member SetShaderUniformVector3 : uniform: ShaderUniform -> v: Vector3 -> unit
-
-    static member SetShaderUniformMatrix4x4 : uniform: ShaderUniform -> m: Matrix4x4 -> unit
+    static member UseShaderUniform : uniform: ShaderUniform -> unit
 
     static member CreateShader : vertexFileName: string -> fragmentFileName: string -> string list -> Shader

@@ -23,7 +23,7 @@ type EBO = EBO of id: int * count: int
 
 type ShaderUniformValue =
     | UniformNone
-    | UniformSingle of single
+    | UniformVector4 of Vector4
     | UniformVector3 of Vector3
     | UniformMatrix4x4 of Matrix4x4
 
@@ -31,6 +31,7 @@ type ShaderUniform =
     {
         id: int
         name: string
+        value: ShaderUniformValue
     }
 
 type Shader =
@@ -301,9 +302,6 @@ type R private () =
         let ptr = handle.AddrOfPinnedObject () |> NativePtr.ofNativeInt<sbyte>
         R._GetUniformId shaderId ptr
 
-    static member UseShader (shader: Shader) =
-        R._UseProgram (shader.id)
-
     [<Import; MI (MIO.NoInlining)>]
     static member CreateWindow () : nativeint =
         C """
@@ -422,14 +420,12 @@ type R private () =
         glUniformMatrix4fv (uniformId, 1, GL_FALSE, &m);
         """
 
-    static member SetShaderUniformVector4 (uniform: ShaderUniform) (v: Vector4) : unit =
-        R._SetUniformVector4 uniform.id v
-
-    static member SetShaderUniformVector3 (uniform: ShaderUniform) (v: Vector3) : unit =
-        R._SetUniformVector3 uniform.id v
-     
-    static member SetShaderUniformMatrix4x4 (uniform: ShaderUniform) (m: Matrix4x4) : unit =
-        R._SetUniformMatrix4x4 uniform.id m
+    static member UseShaderUniform (uniform: ShaderUniform) : unit =
+        match uniform.value with
+        | UniformNone -> ()
+        | UniformVector4 value -> R._SetUniformVector4 uniform.id value
+        | UniformVector3 value -> R._SetUniformVector3 uniform.id value
+        | UniformMatrix4x4 value -> R._SetUniformMatrix4x4 uniform.id value
 
     static member CreateShader vertexFileName fragmentFileName (uniforms: string list) =
         let mutable vertexFile = ([|0uy|]) |> Array.append (File.ReadAllBytes (vertexFileName))
@@ -444,6 +440,7 @@ type R private () =
                 {
                     id = uniformId
                     name = uniforms.[i]
+                    value = UniformNone
                 }
             )
 
@@ -451,3 +448,11 @@ type R private () =
             id = shaderId
             uniforms = uniforms
         }
+
+    static member UseShader (shader: Shader) =
+        R._UseProgram (shader.id)
+
+        shader.uniforms
+        |> List.iter (fun uniform ->
+            R.UseShaderUniform uniform
+        )
