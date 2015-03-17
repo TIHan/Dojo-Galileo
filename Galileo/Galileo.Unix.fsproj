@@ -62,6 +62,7 @@
     <Compile Include="Renderer.fsi" />
     <Compile Include="Renderer.fs">
     </Compile>
+    <Compile Include="Environment.fs" />
     <Compile Include="Galileo.fsi" />
     <Compile Include="Galileo.fs" />
     <None Include="Script.fsx">
