@@ -4,6 +4,7 @@ open System
 open System.IO
 open System.Numerics
 open System.Diagnostics
+open System.Collections.Generic
 
 open Ferop
 
@@ -14,6 +15,77 @@ type RendererContext =
 
 type VBO = VBO of id: int * size: int
 type EBO = EBO of id: int * count: int
+
+type NodeCollection =
+    {
+        mutable nodes: obj
+        mutable length: int
+        update: Environment -> int -> unit
+    }
+
+    static member Create<'T> () =
+        let nodes : (Node<'T> option) [] = Array.init (int Int16.MaxValue) (fun _ -> None)
+
+        let update =
+            fun env currentLength ->
+                for i = 0 to currentLength - 1 do
+                    match nodes.[i] with
+                    | None -> ()
+                    | Some node -> nodes.[i] <- Some (node.Update env)
+
+        {
+            nodes = nodes
+            length = 0
+            update = update
+        }
+
+    member this.Add<'T> (node: Node<'T>) =
+        let nodes = this.nodes :?> ((Node<'T> option) [])
+        nodes.[this.length] <- Some node
+        this.length <- this.length + 1
+
+    member this.UpdateAll env = this.update env this.length
+
+and Node<'T> =
+    {
+        id: int
+        model: 'T
+        update: Environment -> 'T -> 'T
+        render: float32 -> unit
+    }
+
+    member this.Update env =
+        { this with
+            model = this.update env this.model
+        }
+
+and Environment =
+    {
+        mutable time: TimeSpan
+        mutable nodeDict: Dictionary<Type, NodeCollection>
+    }
+
+    static member Create () =
+        {
+            time = TimeSpan.Zero
+            nodeDict = Dictionary ()
+        }
+
+    member this.AddNode<'T> (node: Node<'T>) =
+        let type' = typeof<'T>
+
+        if this.nodeDict.ContainsKey type' 
+        then
+            this.nodeDict.[type'].Add node
+        else
+            let nodes = NodeCollection.Create<'T> ()
+            nodes.Add node
+            this.nodeDict.[type'] <- nodes
+
+    member this.UpdateNodes () =
+        this.nodeDict
+        |> Seq.iter (fun x -> 
+            x.Value.UpdateAll this)
 
 [<Ferop>]
 [<ClangOsx (
@@ -379,8 +451,6 @@ type R private () =
 // http://gafferongames.com/game-physics/fix-your-timestep/
 module GameLoop =
     type private GameLoop<'T> = { 
-        State: 'T
-        PreviousState: 'T
         LastTime: int64
         UpdateTime: int64
         UpdateAccumulator: int64
@@ -389,7 +459,7 @@ module GameLoop =
         RenderFrameCountTime: int64
         RenderFrameLastCount: int }
 
-    let start (state: 'T) (pre: unit -> unit) (update: int64 -> int64 -> 'T -> 'T) (render: float32 -> 'T -> 'T -> unit) =
+    let start (pre: unit -> unit) (update: int64 -> int64 -> unit) (render: float32 -> unit) =
         let targetUpdateInterval = (1000. / 30.) * 10000. |> int64
         let targetRenderInterval = (1000. / 12000.) * 10000. |> int64
         let skip = (1000. / 5.) * 10000. |> int64
@@ -416,12 +486,10 @@ module GameLoop =
             let rec processUpdate gl =
                 if gl.UpdateAccumulator >= targetUpdateInterval
                 then
-                    let state = update gl.UpdateTime targetUpdateInterval gl.State
+                    update gl.UpdateTime targetUpdateInterval
 
                     processUpdate
                         { gl with 
-                            State = state
-                            PreviousState = gl.State
                             UpdateTime = gl.UpdateTime + targetUpdateInterval
                             UpdateAccumulator = gl.UpdateAccumulator - targetUpdateInterval }
                 else
@@ -429,7 +497,7 @@ module GameLoop =
 
             let processRender gl =
                 if gl.RenderAccumulator >= targetRenderInterval then
-                    render (single gl.UpdateAccumulator / single targetUpdateInterval) gl.PreviousState gl.State
+                    render (single gl.UpdateAccumulator / single targetUpdateInterval)
 
                     let renderCount, renderCountTime, renderLastCount =
                         if currentTime >= gl.RenderFrameCountTime + (10000L * 1000L) then
@@ -455,8 +523,7 @@ module GameLoop =
             |> loop
 
         loop
-            { State = state
-              PreviousState = state
+            {
               LastTime = 0L
               UpdateTime = 0L
               UpdateAccumulator = targetUpdateInterval
@@ -545,18 +612,19 @@ module Galileo =
             let r = R.Init window
             let shaderProgram = R.LoadShaders ()
 
-            GameLoop.start () id
+            let env = Environment.Create ()
+
+            GameLoop.start id
                 // server/client
-                (fun time interval state ->
+                (fun time interval ->
                     GC.Collect (0, GCCollectionMode.Forced, true)
 
                     poll ()
                     executeRendererMessages ()
 
-                    state
                 )
                 // client/render
-                (fun t prev curr ->
+                (fun t ->
                     R.Clear ()
 
                     let cameraPosition = Vector3 (2.f, 2.f, 3.f)
