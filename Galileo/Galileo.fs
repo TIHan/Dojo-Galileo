@@ -8,14 +8,6 @@ open System.Collections.Generic
 
 open Ferop
 
-[<Struct>]
-type RendererContext =
-    val Window : nativeint
-    val GLContext : nativeint
-
-type VBO = VBO of id: int * size: int
-type EBO = EBO of id: int * count: int
-
 type NodeCollection =
     {
         mutable nodes: obj
@@ -41,7 +33,7 @@ type NodeCollection =
                     | None -> ()
                     | Some node -> 
                         let f = node.render.Force ()
-                        f env timeDiff
+                        f env timeDiff node.model
 
         {
             nodes = nodes
@@ -63,7 +55,7 @@ and Node<'T> =
         id: int
         model: 'T
         update: Environment -> 'T -> 'T
-        render: (Environment -> float32 -> unit) Lazy
+        render: (Environment -> float32 -> 'T -> unit) Lazy
     }
 
     member this.Update env =
@@ -114,6 +106,30 @@ and Environment =
         this.nodeDict
         |> Seq.iter (fun x ->
             x.Value.RenderAll this timeDiff)
+
+[<Struct>]
+type RendererContext =
+    val Window : nativeint
+    val GLContext : nativeint
+
+type VBO = VBO of id: int * size: int
+type EBO = EBO of id: int * count: int
+
+type ShaderProgram =
+    {
+        id: int
+        vertexId: int
+        fragmentId: int
+        attributeIds: int list
+    }
+
+    static member Create (id, vertexId, fragmentId, attributeIds) =
+        {
+            id = id
+            vertexId = vertexId
+            fragmentId = fragmentId
+            attributeIds = attributeIds
+        }
 
 [<Ferop>]
 [<ClangOsx (
@@ -346,14 +362,13 @@ type R private () =
 
         glUseProgram (ProgramID);
 
-        /******************************************************/
-
-        GLuint vao;
-        glGenVertexArrays (1, &vao);
-
-        glBindVertexArray (vao);
-
         return ProgramID;
+        """
+
+    [<Import; MI (MIO.NoInlining)>]
+    static member private _GetAttributeId (shaderProgram: int, str: nativeptr<sbyte>) : int =
+        C """
+        return glGetAttribLocation (shaderProgram, str);
         """
 
     [<Import; MI (MIO.NoInlining)>]
@@ -446,6 +461,15 @@ type R private () =
 
     static member DrawEBOAsTriangles (EBO (eboId, count)) (VBO (vboId, _)) : unit = 
         R._DrawElementBufferAsTriangles (count, eboId, vboId)
+
+    [<Import; MI (MIO.NoInlining)>]
+    static member CreateVAO () : unit =
+        C """
+        GLuint vao;
+        glGenVertexArrays (1, &vao);
+
+        glBindVertexArray (vao);
+        """
 
     [<Import; MI (MIO.NoInlining)>]
     static member SetColor (shaderProgram: int) (r: single) (g: single) (b: single) : unit = 
@@ -639,9 +663,12 @@ module Galileo =
                 let y = 
                     lazy
                         let vbo = R.CreateVBO (ent.vertices)
-                        fun (env: Environment) timeDiff ->
+                        fun (env: Environment) timeDiff model ->
                             let r, g, b = ent.color
                             R.SetColor env.defaultShaderProgram r g b
+
+                            let value = cos(single env.time.Seconds)
+                            R.SetVBO (ent.vertices |> Array.map (fun x -> Vector3 (x.X * value, x.Y, x.Z)), vbo)
                             R.DrawVBOAsTriangles vbo
                 env.CreateNode<Triangle> (ent, x, y)
 
@@ -656,7 +683,7 @@ module Galileo =
                 let y = 
                     lazy
                         let vbo = R.CreateVBO (ent.vertices)
-                        fun (env: Environment) timeDiff ->
+                        fun (env: Environment) timeDiff model ->
                             let r, g, b = ent.color
                             R.SetColor env.defaultShaderProgram r g b
                             R.DrawVBOAsTriangles vbo
@@ -701,7 +728,7 @@ module Galileo =
                         let nbo = R.CreateVBO normals
                         let vbo = R.CreateVBO vertices
 
-                        fun env t ->
+                        fun env timeDiff model ->
                             let r, g, b = ent.color
                             R.SetColor env.defaultShaderProgram r g b
 
@@ -719,6 +746,7 @@ module Galileo =
                     handleMessages (inbox.Receive () |> Async.RunSynchronously)
 
             let r = R.Init window
+            R.CreateVAO () // fixme:
             let shaderProgram = R.LoadShaders ()
 
             env.defaultShaderProgram <- shaderProgram
@@ -726,6 +754,7 @@ module Galileo =
                 // server/client
                 (fun time interval ->
                     GC.Collect (0, GCCollectionMode.Forced, true)
+                    env.time <- TimeSpan.FromTicks (time)
 
                     executeCommands ()
 
