@@ -21,6 +21,7 @@ type NodeCollection =
         mutable nodes: obj
         mutable length: int
         update: Environment -> int -> unit
+        render: Environment -> float32 -> int -> unit
     }
 
     static member Create<'T> () =
@@ -33,10 +34,20 @@ type NodeCollection =
                     | None -> ()
                     | Some node -> nodes.[i] <- Some (node.Update env)
 
+        let render =
+            fun env timeDiff currentLength ->
+                for i = 0 to currentLength - 1 do
+                    match nodes.[i] with
+                    | None -> ()
+                    | Some node -> 
+                        let f = node.render.Force ()
+                        f env timeDiff
+
         {
             nodes = nodes
             length = 0
             update = update
+            render = render
         }
 
     member this.Add<'T> (node: Node<'T>) =
@@ -45,13 +56,14 @@ type NodeCollection =
         this.length <- this.length + 1
 
     member this.UpdateAll env = this.update env this.length
+    member this.RenderAll env timeDiff = this.render env timeDiff this.length
 
 and Node<'T> =
     {
         id: int
         model: 'T
         update: Environment -> 'T -> 'T
-        render: float32 -> unit
+        render: (Environment -> float32 -> unit) Lazy
     }
 
     member this.Update env =
@@ -62,12 +74,14 @@ and Node<'T> =
 and Environment =
     {
         mutable time: TimeSpan
+        mutable defaultShaderProgram: int
         mutable nodeDict: Dictionary<Type, NodeCollection>
     }
 
     static member Create () =
         {
             time = TimeSpan.Zero
+            defaultShaderProgram = 0
             nodeDict = Dictionary ()
         }
 
@@ -95,6 +109,11 @@ and Environment =
         this.nodeDict
         |> Seq.iter (fun x -> 
             x.Value.UpdateAll this)
+
+    member this.RenderNodes timeDiff =
+        this.nodeDict
+        |> Seq.iter (fun x ->
+            x.Value.RenderAll this timeDiff)
 
 [<Ferop>]
 [<ClangOsx (
@@ -553,6 +572,8 @@ module GameLoop =
               RenderFrameCountTime = 0L
               RenderFrameLastCount = 0 }
 
+(******************************************************************)
+
 type Triangle =
     {
         vertices: Vector3 []
@@ -567,12 +588,6 @@ type Octahedron =
     }
 
 type Sphere = Sphere of unit
-
-[<RequireQualifiedAccess>]
-type Entity =
-    | Triangle of Triangle
-    | Octahedron of Octahedron
-    | Sphere of Sphere
 
 [<RequireQualifiedAccess>]
 module Galileo =
@@ -599,23 +614,19 @@ module Galileo =
             4; 5; 1;
         |]
 
-    type RendererCommand =
-        | Execute of (int -> float32 -> unit) Lazy
-
     [<RequireQualifiedAccess>]
     type Command =
         | SpawnRedTriangle
+        | SpawnBlueTriangle
+        | SpawnOctahedron
 
     let window = ref IntPtr.Zero
     let proc = new MailboxProcessor<Command> (fun inbox ->
         let window = !window
-        let rendererQueue = System.Collections.Generic.Queue<RendererCommand> ()
-
-        let drawCalls = ResizeArray<(int -> float32 -> unit) Lazy> ()
 
         let env = Environment.Create ()
 
-        let f =
+        let handleMessages =
             function
             | Command.SpawnRedTriangle ->
                 let ent : Triangle = 
@@ -623,38 +634,102 @@ module Galileo =
                         vertices = [|Vector3 (0.f, 1.f, 0.f); Vector3 (-1.f, -1.f, 0.f); Vector3 (1.f, -1.f, 0.f)|]
                         color = (1.f, 0.f, 0.f)
                     }
+                
+                let x = fun _ x -> x
+                let y = 
+                    lazy
+                        let vbo = R.CreateVBO (ent.vertices)
+                        fun (env: Environment) timeDiff ->
+                            let r, g, b = ent.color
+                            R.SetColor env.defaultShaderProgram r g b
+                            R.DrawVBOAsTriangles vbo
+                env.CreateNode<Triangle> (ent, x, y)
 
-                env.CreateNode<Triangle> (ent, fun _ x -> x, fun _ -> ())
+            | Command.SpawnBlueTriangle ->
+                let ent : Triangle = 
+                    {
+                        vertices = [|Vector3 (0.f, -1.f, 0.f); Vector3 (1.f, 1.f, 0.f); Vector3 (-1.f, 1.f, 0.f)|]
+                        color = (0.f, 0.f, 1.f)
+                    }
+
+                let x = fun _ x -> x
+                let y = 
+                    lazy
+                        let vbo = R.CreateVBO (ent.vertices)
+                        fun (env: Environment) timeDiff ->
+                            let r, g, b = ent.color
+                            R.SetColor env.defaultShaderProgram r g b
+                            R.DrawVBOAsTriangles vbo
+                env.CreateNode<Triangle> (ent, x, y)
+
+            | Command.SpawnOctahedron ->
+                let ent : Octahedron =
+                    {
+                        vertices = octahedron_vtx
+                        indices = octahedron_idx
+                        color = (0.f, 1.f, 0.f)
+                    }
+
+                let y =
+                    lazy
+                        let vertices =
+                            ent.indices
+                            |> Array.map (fun i -> ent.vertices.[i])
+
+                        let trianglesLength = vertices.Length / 3
+                        let triangles = Array.zeroCreate<Vector3 * Vector3 * Vector3> trianglesLength
+
+                        for i = 0 to trianglesLength - 1 do
+                            let v1 = vertices.[0 + (i * 3)]
+                            let v2 = vertices.[1 + (i * 3)]
+                            let v3 = vertices.[2 + (i * 3)]
+                            triangles.[i] <- (v1, v2, v3)
+
+                        let triangleNormal (v1, v2, v3) = Vector3.Cross (v2 - v1, v3 - v1) |> Vector3.Normalize
+
+                        let normals =
+                            vertices
+                            |> Array.map (fun v ->
+                                match triangles |> Array.filter (fun (v1, v2, v3) -> v.Equals v1 || v.Equals v2 || v.Equals v3) with
+                                | trs ->
+                                    trs
+                                    |> Array.map triangleNormal
+                                    |> Array.reduce ((+))
+                                    |> Vector3.Normalize
+                            )
+
+                        let nbo = R.CreateVBO normals
+                        let vbo = R.CreateVBO vertices
+
+                        fun env t ->
+                            let r, g, b = ent.color
+                            R.SetColor env.defaultShaderProgram r g b
+
+                            let (VBO (nbo, _)) = nbo
+                            R.DrawVBOAsTrianglesWithNBO vbo nbo
+
+                let x = fun _ x -> x
+                env.CreateNode (ent, x, y)
 
         let rec loop () = async {
-            let rec poll () =
+            let rec executeCommands () =
                 match inbox.CurrentQueueLength with
                 | 0 -> ()
                 | _ ->
-                    match inbox.Receive () |> Async.RunSynchronously with
-                    | Command.CreateNode (o, f1, f2) -> 
-                        env.CreateNode (o, f1, f2)
-                        ()
-
-            let rec executeRendererMessages () =
-                match rendererQueue.Count with
-                | 0 -> ()
-                | _ ->
-                    match rendererQueue.Dequeue () with
-                    | RendererCommand.Execute f -> 
-                        drawCalls.Add f
-                        executeRendererMessages ()
+                    handleMessages (inbox.Receive () |> Async.RunSynchronously)
 
             let r = R.Init window
             let shaderProgram = R.LoadShaders ()
 
+            env.defaultShaderProgram <- shaderProgram
             GameLoop.start id
                 // server/client
                 (fun time interval ->
                     GC.Collect (0, GCCollectionMode.Forced, true)
 
-                    poll ()
-                    executeRendererMessages ()
+                    executeCommands ()
+
+                    env.UpdateNodes ()
                 )
                 // client/render
                 (fun t ->
@@ -672,9 +747,7 @@ module Galileo =
                     R.SetModel shaderProgram model
                     R.SetCameraPosition shaderProgram cameraPosition
 
-                    drawCalls
-                    |> Seq.iter (fun x ->
-                        x.Force() shaderProgram t)
+                    env.RenderNodes (t)
 
                     R.Draw r
                 )
@@ -688,96 +761,11 @@ module Galileo =
         proc.Error.Add (fun ex -> printfn "%A" ex)
         ()
 
-    let spawnDefaultRedTriangle () : Async<Triangle> = async {
-        let ent : Triangle = 
-            {
-                vertices = [|Vector3 (0.f, 1.f, 0.f); Vector3 (-1.f, -1.f, 0.f); Vector3 (1.f, -1.f, 0.f)|]
-                color = (1.f, 0.f, 0.f)
-            }
+    let spawnRedTriangle () =
+        proc.Post (Command.SpawnRedTriangle)
 
-        
+    let spawnBlueTriangle () =
+        proc.Post (Command.SpawnBlueTriangle)
 
-        runRenderer <|
-            lazy
-                let vbo = R.CreateVBO ent.vertices
-                fun shaderProgram t ->
-                    let r, g, b = ent.color
-                    R.SetColor shaderProgram r g b
-                    R.DrawVBOAsTriangles vbo
-
-        return ent
-    }
-
-    let spawnDefaultBlueTriangle () : Async<Triangle> = async {
-        let ent : Triangle = 
-            {
-                vertices = [|Vector3 (0.f, -1.f, 0.f); Vector3 (1.f, 1.f, 0.f); Vector3 (-1.f, 1.f, 0.f)|]
-                color = (0.f, 0.f, 1.f)
-            }
-
-        runRenderer <|
-            lazy
-                let vbo = R.CreateVBO ent.vertices
-                fun shaderProgram t ->
-                    let r, g, b = ent.color
-                    R.SetColor shaderProgram r g b
-                    R.DrawVBOAsTriangles vbo
-
-        return ent
-    }
-
-    let spawnDefaultOctahedron () : Async<Octahedron> = async {
-        let ent : Octahedron =
-            {
-                vertices = octahedron_vtx
-                indices = octahedron_idx
-                color = (0.f, 1.f, 0.f)
-            }
-
-        runRenderer <|
-            lazy
-                let vertices =
-                    ent.indices
-                    |> Array.map (fun i -> ent.vertices.[i])
-
-                let trianglesLength = vertices.Length / 3
-                let triangles = Array.zeroCreate<Vector3 * Vector3 * Vector3> trianglesLength
-
-                for i = 0 to trianglesLength - 1 do
-                    let v1 = vertices.[0 + (i * 3)]
-                    let v2 = vertices.[1 + (i * 3)]
-                    let v3 = vertices.[2 + (i * 3)]
-                    triangles.[i] <- (v1, v2, v3)
-
-                let triangleNormal (v1, v2, v3) = Vector3.Cross (v2 - v1, v3 - v1) |> Vector3.Normalize
-
-                let normals =
-                    vertices
-                    |> Array.map (fun v ->
-                        match triangles |> Array.filter (fun (v1, v2, v3) -> v.Equals v1 || v.Equals v2 || v.Equals v3) with
-                        | trs ->
-                            trs
-                            |> Array.map triangleNormal
-                            |> Array.reduce ((+))
-                            |> Vector3.Normalize
-                    )
-
-                let nbo = R.CreateVBO normals
-                let vbo = R.CreateVBO vertices
-
-                fun shaderProgram t ->
-                    let r, g, b = ent.color
-                    R.SetColor shaderProgram r g b
-
-                    let (VBO (nbo, _)) = nbo
-                    R.DrawVBOAsTrianglesWithNBO vbo nbo
-
-        return ent
-    }
-
-    let spawnDefaultSphere () : Async<Sphere> = async {
-        let ent : Sphere = Sphere ()
-
-        return ent
-    }
-
+    let spawnOctahedron () =
+        proc.Post (Command.SpawnOctahedron)

@@ -10,20 +10,12 @@ type Octahedron
 type Sphere
 
 [<RequireQualifiedAccess>]
-type Entity =
-    | Triangle of Triangle
-    | Octahedron of Octahedron
-    | Sphere of Sphere
-
-[<RequireQualifiedAccess>]
 module Galileo =
 
     val init : unit -> unit
 
-    val spawnDefaultRedTriangle : unit -> Async<Triangle>
+    val spawnRedTriangle : unit -> unit
 
-    val spawnDefaultBlueTriangle : unit -> Async<Triangle>
+    val spawnBlueTriangle : unit -> unit
 
-    val spawnDefaultOctahedron : unit -> Async<Octahedron>
-
-    val spawnDefaultSphere : unit -> Async<Sphere>
+    val spawnOctahedron : unit -> unit
