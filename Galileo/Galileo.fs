@@ -71,6 +71,15 @@ and Environment =
             nodeDict = Dictionary ()
         }
 
+    member this.CreateNode<'T> (model: 'T, update, render) =
+        {
+            id = 0
+            model = model
+            update = update
+            render = render
+        }
+        |> this.AddNode
+
     member this.AddNode<'T> (node: Node<'T>) =
         let type' = typeof<'T>
 
@@ -158,6 +167,14 @@ type R private () =
         glBindBuffer (GL_ELEMENT_ARRAY_BUFFER, 0);
 
         return buffer;
+        """
+
+    [<Import; MI (MIO.NoInlining)>]
+    static member private _SetBuffer (size: int, data: Vector3 [], vbo: int) : unit =
+        C """
+        glBindBuffer (GL_ARRAY_BUFFER, vbo);
+        glBufferSubData (GL_ARRAY_BUFFER, 0, size, data);
+        glBindBuffer (GL_ARRAY_BUFFER, 0);
         """
 
     [<Import; MI (MIO.NoInlining)>]
@@ -397,6 +414,10 @@ type R private () =
         let id = R._CreateElementBuffer (size, data)
         EBO (id, data.Length)
 
+    static member SetVBO (data: Vector3 [], (VBO (id, _))) =
+       let size = data.Length * sizeof<Vector3>
+       R._SetBuffer (size, data, id)
+ 
     static member DrawVBOAsTriangles (VBO (id, size)) : unit = 
         R._DrawBufferAsTriangles (size, id)
 
@@ -583,7 +604,7 @@ module Galileo =
 
     [<RequireQualifiedAccess>]
     type Command =
-        | Renderer of RendererCommand
+        | SpawnRedTriangle
 
     let window = ref IntPtr.Zero
     let proc = new MailboxProcessor<Command> (fun inbox ->
@@ -592,13 +613,28 @@ module Galileo =
 
         let drawCalls = ResizeArray<(int -> float32 -> unit) Lazy> ()
 
+        let env = Environment.Create ()
+
+        let f =
+            function
+            | Command.SpawnRedTriangle ->
+                let ent : Triangle = 
+                    {
+                        vertices = [|Vector3 (0.f, 1.f, 0.f); Vector3 (-1.f, -1.f, 0.f); Vector3 (1.f, -1.f, 0.f)|]
+                        color = (1.f, 0.f, 0.f)
+                    }
+
+                env.CreateNode<Triangle> (ent, fun _ x -> x, fun _ -> ())
+
         let rec loop () = async {
             let rec poll () =
                 match inbox.CurrentQueueLength with
                 | 0 -> ()
                 | _ ->
                     match inbox.Receive () |> Async.RunSynchronously with
-                    | Command.Renderer cmd -> rendererQueue.Enqueue cmd
+                    | Command.CreateNode (o, f1, f2) -> 
+                        env.CreateNode (o, f1, f2)
+                        ()
 
             let rec executeRendererMessages () =
                 match rendererQueue.Count with
@@ -612,8 +648,6 @@ module Galileo =
             let r = R.Init window
             let shaderProgram = R.LoadShaders ()
 
-            let env = Environment.Create ()
-
             GameLoop.start id
                 // server/client
                 (fun time interval ->
@@ -621,7 +655,6 @@ module Galileo =
 
                     poll ()
                     executeRendererMessages ()
-
                 )
                 // client/render
                 (fun t ->
@@ -655,15 +688,14 @@ module Galileo =
         proc.Error.Add (fun ex -> printfn "%A" ex)
         ()
 
-    let runRenderer (f: (int -> float32 -> unit) Lazy) =
-        proc.Post (Command.Renderer (RendererCommand.Execute f))
-
     let spawnDefaultRedTriangle () : Async<Triangle> = async {
         let ent : Triangle = 
             {
                 vertices = [|Vector3 (0.f, 1.f, 0.f); Vector3 (-1.f, -1.f, 0.f); Vector3 (1.f, -1.f, 0.f)|]
                 color = (1.f, 0.f, 0.f)
             }
+
+        
 
         runRenderer <|
             lazy
@@ -730,18 +762,15 @@ module Galileo =
                             |> Vector3.Normalize
                     )
 
-                let (VBO (nbo,_)) = R.CreateVBO normals
+                let nbo = R.CreateVBO normals
                 let vbo = R.CreateVBO vertices
-                    
-                //let vbo = R.CreateVBO ent.vertices
-                //let ebo = R.CreateEBO ent.indices
 
                 fun shaderProgram t ->
                     let r, g, b = ent.color
                     R.SetColor shaderProgram r g b
-                    R.DrawVBOAsTrianglesWithNBO vbo nbo
 
-                    //R.DrawEBOAsTriangles ebo vbo
+                    let (VBO (nbo, _)) = nbo
+                    R.DrawVBOAsTrianglesWithNBO vbo nbo
 
         return ent
     }
