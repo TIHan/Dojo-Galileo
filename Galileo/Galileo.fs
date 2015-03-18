@@ -14,7 +14,6 @@ type RendererContext =
     val GLContext : nativeint
 
 type VBO = VBO of id: int * size: int
-type EBO = EBO of id: int * count: int
 
 type NodeCollection =
     {
@@ -176,19 +175,6 @@ type R private () =
         """
 
     [<Import; MI (MIO.NoInlining)>]
-    static member private _CreateElementBuffer (size: int, data: int []) : int =
-        C """
-        GLuint buffer;
-
-        glGenBuffers (1, &buffer);
-        glBindBuffer (GL_ELEMENT_ARRAY_BUFFER, buffer);
-        glBufferData (GL_ELEMENT_ARRAY_BUFFER, size, data, GL_DYNAMIC_DRAW);
-        glBindBuffer (GL_ELEMENT_ARRAY_BUFFER, 0);
-
-        return buffer;
-        """
-
-    [<Import; MI (MIO.NoInlining)>]
     static member private _SetBuffer (size: int, data: Vector3 [], vbo: int) : unit =
         C """
         glBindBuffer (GL_ARRAY_BUFFER, vbo);
@@ -259,20 +245,6 @@ type R private () =
         glDisableVertexAttribArray (1);
         glDisableVertexAttribArray (0);
         glBindBuffer (GL_ARRAY_BUFFER, 0);
-        """
-
-    [<Import; MI (MIO.NoInlining)>]
-    static member private _DrawElementBufferAsTriangles (count: int, ebo: int, vbo: int) : unit =
-        C """
-        glEnableVertexAttribArray (0);
-
-        glBindBuffer (GL_ARRAY_BUFFER, vbo);
-        glVertexAttribPointer (0, 3, GL_FLOAT, GL_FALSE, 0, 0);
-        glBindBuffer (GL_ARRAY_BUFFER, 0);
-
-        glBindBuffer (GL_ELEMENT_ARRAY_BUFFER, ebo);
-        glDrawElements (GL_TRIANGLES, count, GL_UNSIGNED_INT, 0);
-        glBindBuffer (GL_ELEMENT_ARRAY_BUFFER, 0);
         """
 
     [<Import; MI (MIO.NoInlining)>]
@@ -408,10 +380,10 @@ type R private () =
 	// Enable depth test
 	glEnable(GL_DEPTH_TEST);
 	// Accept fragment if it closer to the camera than the former one
-	//glDepthFunc(GL_LESS); 
+	glDepthFunc(GL_LESS); 
 
 	// Cull triangles which normal is not towards the camera
-	//glEnable(GL_CULL_FACE);
+	glEnable(GL_CULL_FACE);
     
     """
 
@@ -428,11 +400,6 @@ type R private () =
         let id = R._CreateBuffer_vector3 (size, data)
         VBO (id, size)
 
-    static member CreateEBO (data: int []) : EBO =
-        let size = data.Length * sizeof<int>
-        let id = R._CreateElementBuffer (size, data)
-        EBO (id, data.Length)
-
     static member SetVBO (data: Vector3 [], (VBO (id, _))) =
        let size = data.Length * sizeof<Vector3>
        R._SetBuffer (size, data, id)
@@ -443,9 +410,6 @@ type R private () =
     // FIXME:
     static member DrawVBOAsTrianglesWithNBO (VBO (id, size)) nbo : unit = 
         R._DrawBufferAsTrianglesWithNBO (size, id, nbo)
-
-    static member DrawEBOAsTriangles (EBO (eboId, count)) (VBO (vboId, _)) : unit = 
-        R._DrawElementBufferAsTriangles (count, eboId, vboId)
 
     [<Import; MI (MIO.NoInlining)>]
     static member SetColor (shaderProgram: int) (r: single) (g: single) (b: single) : unit = 
@@ -655,8 +619,9 @@ module Galileo =
                         let vbo = R.CreateVBO vertices
 
                         fun env t ->
-                            let c = single <| cos (env.time.TotalMilliseconds)
-                            //R.SetMVP env.defaultShaderProgram (Matrix4x4.Identity * c * 2.f)
+                            let c = single <| sin (env.time.TotalSeconds)
+                            R.SetModel env.defaultShaderProgram (Matrix4x4.CreateRotationX (c))
+
                             let r, g, b = ent.color
                             R.SetColor env.defaultShaderProgram r g b
 
@@ -679,6 +644,7 @@ module Galileo =
             GameLoop.start id
                 // server/client
                 (fun time interval ->
+                    env.time <- TimeSpan.FromTicks time
                     GC.Collect (0, GCCollectionMode.Forced, true)
 
                     executeCommands ()
