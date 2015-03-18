@@ -455,10 +455,10 @@ type R private () =
         """
 
     [<Import; MI (MIO.NoInlining)>]
-    static member SetMVP (shaderProgram: int) (mvp: Matrix4x4) : unit =
+    static member SetProjection (shaderProgram: int) (projection: Matrix4x4) : unit =
         C """
-        GLuint uni = glGetUniformLocation (shaderProgram, "uni_mvp");
-        glUniformMatrix4fv (uni, 1, GL_FALSE, &mvp);
+        GLuint uni = glGetUniformLocation (shaderProgram, "uni_projection");
+        glUniformMatrix4fv (uni, 1, GL_FALSE, &projection);
         """
 
     [<Import; MI (MIO.NoInlining)>]
@@ -655,6 +655,8 @@ module Galileo =
                         let vbo = R.CreateVBO vertices
 
                         fun env t ->
+                            let c = single <| cos (env.time.TotalMilliseconds)
+                            //R.SetMVP env.defaultShaderProgram (Matrix4x4.Identity * c * 2.f)
                             let r, g, b = ent.color
                             R.SetColor env.defaultShaderProgram r g b
 
@@ -689,12 +691,11 @@ module Galileo =
 
                     let cameraPosition = Vector3 (2.f, 2.f, 3.f)
 
-                    let projection = Matrix4x4.CreatePerspectiveFieldOfView (90.f * 0.0174532925f, (400.f / 400.f), 0.1f, 100.f) |> Matrix4x4.Transpose
-                    let view = Matrix4x4.CreateLookAt (cameraPosition, Vector3 (0.f, 0.f, 0.f), Vector3 (0.f, 1.f, 0.f)) |> Matrix4x4.Transpose
+                    let projection = Matrix4x4.CreatePerspectiveFieldOfView (90.f * 0.0174532925f, (400.f / 400.f), 0.1f, 100.f)
+                    let view = Matrix4x4.CreateLookAt (cameraPosition, Vector3 (0.f, 0.f, 0.f), Vector3 (0.f, 1.f, 0.f))
                     let model = Matrix4x4.Identity
-                    let mvp = projection * view * model |> Matrix4x4.Transpose
 
-                    R.SetMVP shaderProgram mvp
+                    R.SetProjection shaderProgram projection
                     R.SetView shaderProgram view
                     R.SetModel shaderProgram model
                     R.SetCameraPosition shaderProgram cameraPosition
