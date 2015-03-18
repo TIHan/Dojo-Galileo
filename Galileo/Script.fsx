@@ -10,12 +10,7 @@ Galileo.init ()
 
 // ------------------------------------------------------------------------- //
 
-Galileo.spawnRedTriangle ()
-Galileo.spawnBlueTriangle ()
 Galileo.spawnOctahedron ()
-//Galileo.spawnDefaultRedTriangle () |> Async.RunSynchronously
-//Galileo.spawnDefaultBlueTriangle () |> Async.RunSynchronously
+
 
 // ------------------------------------------------------------------------- //
-
-//Galileo.spawnDefaultOctahedron () |> Async.RunSynchronously
