@@ -12,16 +12,15 @@ Galileo.init ()
 
 // ------------------------------------------------------------------------- //
 
-
 let node = Galileo.spawnSphere ()
-
+let nodes = Galileo.spawnMultipleSpheres ()
 
 // ------------------------------------------------------------------------- //
 
 node
 |> Node.setUpdate (fun time state ->
     { state with 
-        translation = Matrix4x4.CreateTranslation (Vector3.One)
+        translation = Matrix4x4.Identity * Matrix4x4.CreateTranslation (Vector3.One + (Vector3.UnitZ * cos(single time.TotalSeconds)))
         //position = Vector3.One * -1.5f
     }
 )

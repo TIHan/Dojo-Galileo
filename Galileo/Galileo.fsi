@@ -20,6 +20,8 @@ module Galileo =
 
     val spawnSphere : unit -> Node<Sphere>
 
+    val spawnMultipleSpheres : unit -> Node<Sphere> []
+
 module Node =
 
     val setUpdate : (TimeSpan -> 'T -> 'T) -> Node<'T> -> unit
