@@ -31,7 +31,8 @@ type NodeCollection =
                 for i = 0 to currentLength - 1 do
                     match nodes.[i] with
                     | None -> ()
-                    | Some node -> nodes.[i] <- Some (node.Update env)
+                    | Some node -> 
+                        node.Update env //<- Some (node.Update env)
 
         let render =
             fun env timeDiff currentLength ->
@@ -40,7 +41,7 @@ type NodeCollection =
                     | None -> ()
                     | Some node -> 
                         let f = node.render.Force ()
-                        f env timeDiff
+                        f env timeDiff node.previousModel node.currentModel
 
         {
             nodes = nodes
@@ -60,15 +61,19 @@ type NodeCollection =
 and Node<'T> =
     {
         id: int
-        model: 'T
-        update: Environment -> 'T -> 'T
-        render: (Environment -> float32 -> unit) Lazy
+        mutable previousModel: 'T
+        mutable currentModel: 'T
+        mutable update: Environment -> 'T -> 'T
+        render: (Environment -> float32 -> 'T -> 'T -> unit) Lazy
     }
 
     member this.Update env =
-        { this with
-            model = this.update env this.model
-        }
+        this.currentModel <- this.update env this.currentModel
+        this.previousModel <- this.currentModel
+        ()
+
+    member this.SetUpdate update =
+        this.update <- fun env x -> update env.time x
 
 and Environment =
     {
@@ -84,14 +89,19 @@ and Environment =
             nodeDict = Dictionary ()
         }
 
+    member this.Time = this.time
+
     member this.CreateNode<'T> (model: 'T, update, render) =
-        {
-            id = 0
-            model = model
-            update = update
-            render = render
-        }
-        |> this.AddNode
+        let node =
+            {
+                id = 0
+                currentModel = model
+                previousModel = model
+                update = update
+                render = render
+            }
+        this.AddNode node
+        node
 
     member this.AddNode<'T> (node: Node<'T>) =
         let type' = typeof<'T>
@@ -353,7 +363,7 @@ type R private () =
         SDL_GL_SetAttribute (SDL_GL_CONTEXT_PROFILE_MASK, SDL_GL_CONTEXT_PROFILE_CORE);
 
         r.GLContext = SDL_GL_CreateContext ((SDL_Window*)r.Window);
-        SDL_GL_SetSwapInterval (0);
+        SDL_GL_SetSwapInterval (1);
 
         #if defined(__GNUC__)
         #else
@@ -538,13 +548,17 @@ module GameLoop =
 
 (******************************************************************)
 
-type Octahedron =
+type Sphere =
     {
+        translation: Matrix4x4
+        rotation: Matrix4x4
         color: float32 * float32 * float32
     }
 
 [<RequireQualifiedAccess>]
 module Galileo =
+
+    let inline lerp x y t = x + (y - x) * t
 
     let octahedron_vtx = 
         [|
@@ -570,7 +584,7 @@ module Galileo =
 
     [<RequireQualifiedAccess>]
     type Command =
-        | SpawnOctahedron
+        | SpawnSphere of AsyncReplyChannel<Node<Sphere>>
 
     let window = ref IntPtr.Zero
     let proc = new MailboxProcessor<Command> (fun inbox ->
@@ -580,7 +594,7 @@ module Galileo =
 
         let handleMessages =
             function
-            | Command.SpawnOctahedron ->
+            | Command.SpawnSphere (ch) ->
                 let vertices =
                     octahedron_idx
                     |> Array.map (fun i -> octahedron_vtx.[i])
@@ -593,6 +607,36 @@ module Galileo =
                     let v2 = vertices.[1 + (i * 3)]
                     let v3 = vertices.[2 + (i * 3)]
                     triangles.[i] <- (v1, v2, v3)
+                   
+
+                let rec buildSphere n triangles =
+                    match n with
+                    | 3 -> triangles
+                    | _ ->
+                        triangles
+                        |> Array.map (fun (v1: Vector3, v2: Vector3, v3: Vector3) ->                               
+                            let v1 = v1 |> Vector3.Normalize
+                            let v2 = Vector3.Normalize v2
+                            let v3 = Vector3.Normalize v3
+                            let v12 = v2 * 0.5f + v1 * 0.5f |> Vector3.Normalize
+                            let v13 = v1 * 0.5f + v3 * 0.5f |> Vector3.Normalize
+                            let v23 = v2 * 0.5f + v3 * 0.5f |> Vector3.Normalize
+                            [|
+                            (v1, v12, v13)
+                            (v2, v23, v12)
+                            (v3, v13, v23)
+                            (v12, v23, v13)
+                            |]
+                        )
+                        |> Array.reduce Array.append
+                        |> buildSphere (n + 1)
+
+                let triangles = buildSphere 0 triangles
+
+                let vertices =
+                    triangles
+                    |> Array.map (fun (x, y, z) -> [|x;y;z|])
+                    |> Array.reduce Array.append
 
                 let triangleNormal (v1, v2, v3) = Vector3.Cross (v2 - v1, v3 - v1) |> Vector3.Normalize
 
@@ -607,28 +651,33 @@ module Galileo =
                             |> Vector3.Normalize
                     )
 
-                let ent : Octahedron =
+                let ent : Sphere =
                     {
+                        translation = Matrix4x4.Identity
+                        rotation = Matrix4x4.Identity
                         color = (0.f, 1.f, 0.f)
                     }
 
-                let x = fun _ x -> x
+                let x = fun env x -> x
                 let y =
                     lazy
                         let nbo = R.CreateVBO normals
                         let vbo = R.CreateVBO vertices
 
-                        fun env t ->
-                            let c = single <| sin (env.time.TotalSeconds)
-                            R.SetModel env.defaultShaderProgram (Matrix4x4.CreateRotationX (c))
+                        fun env t prev curr ->
+                            let translation = lerp prev.translation curr.translation t
+                            let rotation = lerp prev.rotation curr.rotation t
 
-                            let r, g, b = ent.color
+
+                            R.SetModel env.defaultShaderProgram (translation * rotation)
+
+                            let r, g, b = curr.color
                             R.SetColor env.defaultShaderProgram r g b
 
                             let (VBO (nbo, _)) = nbo
                             R.DrawVBOAsTrianglesWithNBO vbo nbo
 
-                env.CreateNode (ent, x, y)
+                ch.Reply (env.CreateNode (ent, x, y))
 
         let rec loop () = async {
             let rec executeCommands () =
@@ -655,7 +704,7 @@ module Galileo =
                 (fun t ->
                     R.Clear ()
 
-                    let cameraPosition = Vector3 (2.f, 2.f, 3.f)
+                    let cameraPosition = Vector3 (0.f, 0.f, 8.f)
 
                     let projection = Matrix4x4.CreatePerspectiveFieldOfView (90.f * 0.0174532925f, (400.f / 400.f), 0.1f, 100.f)
                     let view = Matrix4x4.CreateLookAt (cameraPosition, Vector3 (0.f, 0.f, 0.f), Vector3 (0.f, 1.f, 0.f))
@@ -680,5 +729,9 @@ module Galileo =
         proc.Error.Add (fun ex -> printfn "%A" ex)
         ()
 
-    let spawnOctahedron () =
-        proc.Post (Command.SpawnOctahedron)
+    let spawnSphere () =
+        proc.PostAndReply (fun ch -> Command.SpawnSphere (ch))
+
+module Node =
+    let setUpdate f (node: Node<'T>) =
+        node.SetUpdate f
