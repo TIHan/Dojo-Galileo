@@ -61,6 +61,7 @@
   <ItemGroup>
     <Compile Include="Game.fsi" />
     <Compile Include="Game.fs" />
+    <Compile Include="Renderer.fs" />
     <Compile Include="Galileo.fsi" />
     <Compile Include="Galileo.fs" />
     <None Include="Script.fsx" />
