@@ -252,7 +252,7 @@ type R private () =
         SDL_GL_SetAttribute (SDL_GL_CONTEXT_PROFILE_MASK, SDL_GL_CONTEXT_PROFILE_CORE);
 
         r.GLContext = SDL_GL_CreateContext ((SDL_Window*)r.Window);
-        SDL_GL_SetSwapInterval (1);
+        SDL_GL_SetSwapInterval (0);
 
         #if defined(__GNUC__)
         #else

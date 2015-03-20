@@ -5,48 +5,7 @@ open System.Diagnostics
 open System.Collections.Generic
 open System.Collections.Concurrent
 
-type NodeCollection =
-    {
-        mutable nodes: obj
-        mutable length: int
-        update: GameEnvironment -> int -> unit
-        render: GameEnvironment -> float32 -> int -> unit
-    }
-
-    static member Create<'T> () =
-        let nodes : (Node<'T> option) [] = Array.init (int (Int32.MaxValue / 256)) (fun _ -> None)
-
-        let update =
-            fun env currentLength ->
-                for i = 0 to currentLength - 1 do
-                    match nodes.[i] with
-                    | None -> ()
-                    | Some node -> 
-                        node.Update env //<- Some (node.Update env)
-
-        let render =
-            fun env timeDiff currentLength ->
-                for i = 0 to currentLength - 1 do
-                    match nodes.[i] with
-                    | None -> ()
-                    | Some node -> 
-                        let f = node.render.Force ()
-                        f env timeDiff node.previousModel node.currentModel
-
-        {
-            nodes = nodes
-            length = 0
-            update = update
-            render = render
-        }
-
-    member this.Add<'T> (node: Node<'T>) =
-        let nodes = this.nodes :?> ((Node<'T> option) [])
-        nodes.[this.length] <- Some node
-        this.length <- this.length + 1
-
-    member this.UpdateAll env = this.update env this.length
-    member this.RenderAll env timeDiff = this.render env timeDiff this.length
+type Node = interface end
 
 and Node<'T> =
     {
@@ -58,28 +17,35 @@ and Node<'T> =
     }
 
     member this.Update env =
-        this.currentModel <- this.update env this.currentModel
         this.previousModel <- this.currentModel
+        this.currentModel <- this.update env this.currentModel
+       // this.previousModel <- this.currentModel
         ()
 
     member this.SetUpdate update =
         this.update <- fun env x -> update env.time x
 
+    interface Node
+
 and GameEnvironment =
     {
+        nodes: (Node option) []
+        updates: ((unit -> unit) option) []
+        renders: ((float32 -> unit) option) []
+        mutable length: int
         mutable time: TimeSpan
         mutable defaultShaderProgram: int
-        mutable nodeDict: Dictionary<Type, NodeCollection>
     }
 
     static member Create () =
         {
+            nodes = Array.init (65536) (fun _ -> None)
+            updates = Array.init (65536) (fun _ -> None)
+            renders = Array.init (65536) (fun _ -> None)
+            length = 0
             time = TimeSpan.Zero
             defaultShaderProgram = 0
-            nodeDict = Dictionary ()
         }
-
-    member this.Time = this.time
 
     member this.CreateNode<'T> (model: 'T, update, render) =
         let node =
@@ -94,25 +60,24 @@ and GameEnvironment =
         node
 
     member this.AddNode<'T> (node: Node<'T>) =
-        let type' = typeof<'T>
-
-        if this.nodeDict.ContainsKey type' 
-        then
-            this.nodeDict.[type'].Add node
-        else
-            let nodes = NodeCollection.Create<'T> ()
-            nodes.Add node
-            this.nodeDict.[type'] <- nodes
+        this.nodes.[this.length] <- Some (node :> Node)
+        this.updates.[this.length] <- Some (fun () -> node.Update this)
+        this.renders.[this.length] <- Some (fun t -> node.render.Force() this t node.previousModel node.currentModel)
+        this.length <- this.length + 1
 
     member this.UpdateNodes () =
-        this.nodeDict
-        |> Seq.iter (fun x -> 
-            x.Value.UpdateAll this)
+        this.updates
+        |> Array.Parallel.iter (fun x ->
+            match x with
+            | None -> ()
+            | Some update -> update ())
 
-    member this.RenderNodes timeDiff =
-        this.nodeDict
-        |> Seq.iter (fun x ->
-            x.Value.RenderAll this timeDiff)
+    member this.RenderNodes t =
+        this.renders
+        |> Array.iter (fun x ->
+            match x with
+            | None -> ()
+            | Some render -> render t)
 
 // http://gafferongames.com/game-physics/fix-your-timestep/
 module GameLoop =

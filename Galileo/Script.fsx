@@ -17,12 +17,13 @@ let nodes = Galileo.spawnMultipleSpheres ()
 
 // ------------------------------------------------------------------------- //
 
-node
-|> Node.setUpdate (fun time state ->
-    { state with 
-        translation = Matrix4x4.Identity * Matrix4x4.CreateTranslation (Vector3.One + (Vector3.UnitZ * cos(single time.TotalSeconds)))
-        //position = Vector3.One * -1.5f
-    }
-)
+nodes
+|> Array.iter (fun node ->
+    node
+    |> Node.setUpdate (fun time state -> 
+        { state with color = (0.f, 0.f, 1.f) }
+    ))
+
+printfn "%A" nodes.Length
 
 let node2 = Galileo.spawnSphere ()

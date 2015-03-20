@@ -3,19 +3,22 @@
 open System
 open System.Collections.Generic
 
-[<Sealed>]
-type NodeCollection =
-    static member Create<'T> : unit -> NodeCollection
+type Node = interface end
 
 [<Sealed>]
 type Node<'T> =
     member SetUpdate : (TimeSpan -> 'T -> 'T) -> unit
 
+    interface Node
+
 type GameEnvironment =
     {
+        nodes: (Node option) []
+        updates: ((unit -> unit) option) []
+        renders: ((float32 -> unit) option) []
+        mutable length: int
         mutable time: TimeSpan
         mutable defaultShaderProgram: int
-        mutable nodeDict: Dictionary<Type, NodeCollection>
     }
 
     static member Create : unit -> GameEnvironment
