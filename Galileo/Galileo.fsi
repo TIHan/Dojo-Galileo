@@ -3,8 +3,7 @@
 open System
 open System.Numerics
 
-[<Sealed>]
-type Node<'T>
+open Game
 
 type Sphere =
     {
