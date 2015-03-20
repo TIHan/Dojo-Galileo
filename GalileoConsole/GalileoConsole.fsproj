@@ -5,35 +5,37 @@
     <Configuration Condition=" '$(Configuration)' == '' ">Debug</Configuration>
     <Platform Condition=" '$(Platform)' == '' ">AnyCPU</Platform>
     <SchemaVersion>2.0</SchemaVersion>
-    <ProjectGuid>f708be5d-8293-45e7-8548-5fe0fffb188a</ProjectGuid>
-    <OutputType>Library</OutputType>
-    <RootNamespace>Galileo</RootNamespace>
-    <AssemblyName>Galileo</AssemblyName>
+    <ProjectGuid>e0090105-8340-4cef-8bd3-c1803b76313b</ProjectGuid>
+    <OutputType>Exe</OutputType>
+    <RootNamespace>GalileoConsole</RootNamespace>
+    <AssemblyName>GalileoConsole</AssemblyName>
     <TargetFrameworkVersion>v4.5</TargetFrameworkVersion>
+    <AutoGenerateBindingRedirects>true</AutoGenerateBindingRedirects>
     <TargetFSharpCoreVersion>4.3.1.0</TargetFSharpCoreVersion>
-    <Name>Galileo</Name>
-    <NuGetPackageImportStamp>733ff32e</NuGetPackageImportStamp>
+    <Name>GalileoConsole</Name>
   </PropertyGroup>
   <PropertyGroup Condition=" '$(Configuration)|$(Platform)' == 'Debug|AnyCPU' ">
     <DebugSymbols>true</DebugSymbols>
     <DebugType>full</DebugType>
     <Optimize>false</Optimize>
     <Tailcalls>false</Tailcalls>
-    <OutputPath>..\build</OutputPath>
-    <DefineConstants>TRACE;DEBUG</DefineConstants>
+    <OutputPath>..\build\</OutputPath>
+    <DefineConstants>DEBUG;TRACE</DefineConstants>
     <WarningLevel>3</WarningLevel>
-    <DocumentationFile>..\build\Galileo.XML</DocumentationFile>
     <PlatformTarget>x86</PlatformTarget>
+    <DocumentationFile>..\build\GalileoConsole.xml</DocumentationFile>
+    <Prefer32Bit>false</Prefer32Bit>
   </PropertyGroup>
   <PropertyGroup Condition=" '$(Configuration)|$(Platform)' == 'Release|AnyCPU' ">
     <DebugType>pdbonly</DebugType>
     <Optimize>true</Optimize>
     <Tailcalls>true</Tailcalls>
-    <OutputPath>..\build</OutputPath>
+    <OutputPath>..\build\</OutputPath>
     <DefineConstants>TRACE</DefineConstants>
     <WarningLevel>3</WarningLevel>
-    <DocumentationFile>..\build\Galileo.XML</DocumentationFile>
     <PlatformTarget>x86</PlatformTarget>
+    <DocumentationFile>..\build\GalileoConsole.xml</DocumentationFile>
+    <Prefer32Bit>false</Prefer32Bit>
   </PropertyGroup>
   <PropertyGroup>
     <MinimumVisualStudioVersion Condition="'$(MinimumVisualStudioVersion)' == ''">11</MinimumVisualStudioVersion>
@@ -51,33 +53,12 @@
     </Otherwise>
   </Choose>
   <Import Project="$(FSharpTargetsPath)" />
-  <Import Project="..\packages\Ferop.1.0.0-beta6\build\Ferop.targets" Condition="Exists('..\packages\Ferop.1.0.0-beta6\build\Ferop.targets')" />
-  <Target Name="EnsureNuGetPackageBuildImports" BeforeTargets="PrepareForBuild">
-    <PropertyGroup>
-      <ErrorText>This project references NuGet package(s) that are missing on this computer. Enable NuGet Package Restore to download them.  For more information, see http://go.microsoft.com/fwlink/?LinkID=322105. The missing file is {0}.</ErrorText>
-    </PropertyGroup>
-    <Error Condition="!Exists('..\packages\Ferop.1.0.0-beta6\build\Ferop.targets')" Text="$([System.String]::Format('$(ErrorText)', '..\packages\Ferop.1.0.0-beta6\build\Ferop.targets'))" />
-  </Target>
   <ItemGroup>
-    <Compile Include="Game.fsi" />
-    <Compile Include="Game.fs" />
-    <Compile Include="Renderer.fs" />
-    <Compile Include="Galileo.fsi" />
-    <Compile Include="Galileo.fs" />
-    <None Include="Script.fsx" />
-    <None Include="f.fragment">
-      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
-    </None>
-    <None Include="v.vertex">
-      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
-    </None>
+    <Compile Include="Program.fs" />
+    <None Include="App.config" />
     <Content Include="packages.config" />
   </ItemGroup>
   <ItemGroup>
-    <Reference Include="Ferop">
-      <HintPath>..\packages\Ferop.1.0.0-beta6\lib\net45\Ferop.dll</HintPath>
-      <Private>True</Private>
-    </Reference>
     <Reference Include="mscorlib" />
     <Reference Include="FSharp.Core, Version=$(TargetFSharpCoreVersion), Culture=neutral, PublicKeyToken=b03f5f7f11d50a3a">
       <Private>True</Private>
@@ -89,11 +70,12 @@
       <HintPath>..\packages\System.Numerics.Vectors.1.1.6-beta\lib\portable-net45+win8\System.Numerics.Vectors.dll</HintPath>
       <Private>True</Private>
     </Reference>
+    <ProjectReference Include="..\Galileo\Galileo.fsproj">
+      <Name>Galileo</Name>
+      <Project>{f708be5d-8293-45e7-8548-5fe0fffb188a}</Project>
+      <Private>True</Private>
+    </ProjectReference>
   </ItemGroup>
-  <PropertyGroup>
-    <PostBuildEvent>xcopy /f "$(ProjectDir)..\lib\win\$(PlatformTarget)\SDL2.dll" "$(TargetDir)" /q /y
-xcopy /f "$(ProjectDir)..\lib\win\$(PlatformTarget)\glew32.dll" "$(TargetDir)" /q /y</PostBuildEvent>
-  </PropertyGroup>
   <!-- To modify your build process, add your task inside one of the targets below and uncomment it. 
        Other similar extension points exist, see Microsoft.Common.targets.
   <Target Name="BeforeBuild">

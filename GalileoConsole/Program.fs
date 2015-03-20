@@ -1,13 +1,7 @@
-﻿#I @"../build/"
-
-#r @"System.Numerics.Vectors.dll"
-#r @"Galileo.dll"
-
-open System
+﻿open System
 open System.Numerics
 open Galileo
 
-Environment.CurrentDirectory <- __SOURCE_DIRECTORY__
 Runtime.GCSettings.LatencyMode <- Runtime.GCLatencyMode.Batch
 Galileo.init ()
 
@@ -25,6 +19,7 @@ nodes
         { state with color = (0.f, 0.f, 1.f) }
     ))
 
-printfn "%A" nodes.Length
-
-let node2 = Galileo.spawnSphere ()
+[<EntryPoint>]
+let main argv = 
+    Console.ReadLine() |> ignore
+    0

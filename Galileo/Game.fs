@@ -67,7 +67,7 @@ and GameEnvironment =
 
     member this.UpdateNodes () =
         this.updates
-        |> Array.Parallel.iter (fun x ->
+        |> Array.iter (fun x ->
             match x with
             | None -> ()
             | Some update -> update ())
