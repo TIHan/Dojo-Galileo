@@ -12,9 +12,11 @@ open Game
 
 type Sphere =
     {
-        translation: Matrix4x4
-        rotation: Matrix4x4
-        color: float32 * float32 * float32
+        translation: GameField<Matrix4x4>
+        rotation: GameField<Matrix4x4>
+        r: GameField<float32>
+        g: GameField<float32>
+        b: GameField<float32>
     }
 
 [<RequireQualifiedAccess>]
@@ -107,12 +109,14 @@ module Galileo =
 
                     let ent : Sphere =
                         {
-                            translation = Matrix4x4.Identity
-                            rotation = Matrix4x4.Identity
-                            color = (0.f, 1.f, 0.f)
+                            translation = GameField (Matrix4x4.Identity)
+                            rotation = GameField (Matrix4x4.Identity)
+                            r = GameField (0.f)
+                            g = GameField (1.f)
+                            b = GameField (0.f)
                         }
 
-                    let x = fun _ x -> x
+                    let x = fun _ _ -> ()
                     let y =
                         lazy
                             let nbo = R.CreateVBO normals
@@ -120,13 +124,15 @@ module Galileo =
 
                             fun env t prev curr ->
                                 ()
-                                let translation = lerp prev.translation curr.translation t
-                                let rotation = lerp prev.rotation curr.rotation t
+                                let translation = lerp prev.translation.Value curr.translation.Value t
+                                let rotation = lerp prev.rotation.Value curr.rotation.Value t
 
 
                                 R.SetModel env.defaultShaderProgram (translation * rotation)
 
-                                let r, g, b = curr.color
+                                let r = curr.r.Value
+                                let g = curr.g.Value
+                                let b = curr.b.Value
                                 R.SetColor env.defaultShaderProgram r g b
 
                                 let (VBO (nbo, _)) = nbo
@@ -137,7 +143,7 @@ module Galileo =
         env.CreateNode (lazyF.Force())
 
     let spawnMultipleSpheresHandler env =
-        Array.init 1000 (fun _ -> spawnSphereHandler env)
+        Array.init 10000 (fun _ -> spawnSphereHandler env)
 
     [<RequireQualifiedAccess>]
     type Command =
@@ -192,7 +198,7 @@ module Galileo =
                     R.SetModel shaderProgram model
                     R.SetCameraPosition shaderProgram cameraPosition
 
-                    env.RenderNodes (t)
+                    //env.RenderNodes (t)
 
                     R.Draw r
                 )

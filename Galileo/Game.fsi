@@ -7,7 +7,7 @@ type Node = interface end
 
 [<Sealed>]
 type Node<'T> =
-    member SetUpdate : (TimeSpan -> 'T -> 'T) -> unit
+    member SetUpdate : (TimeSpan -> 'T -> unit) -> unit
 
     interface Node
 
@@ -23,11 +23,21 @@ type GameEnvironment =
 
     static member Create : unit -> GameEnvironment
 
-    member CreateNode<'T> : 'T * (GameEnvironment -> 'T -> 'T) * (Lazy<GameEnvironment -> float32 -> 'T -> 'T -> unit>) -> Node<'T>
+    member CreateNode<'T> : 'T * (GameEnvironment -> 'T -> unit) * (Lazy<GameEnvironment -> float32 -> 'T -> 'T -> unit>) -> Node<'T>
 
     member UpdateNodes : unit -> unit
 
     member RenderNodes : float32 -> unit
+
+[<Sealed>]
+type GameField<'T when 'T : unmanaged> =
+    new : 'T -> GameField<'T>
+
+    member Value : 'T
+
+    member History : 'T []
+
+    static member (<~) : GameField<'T> * 'T -> unit
 
 module GameLoop =
 

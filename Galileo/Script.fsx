@@ -22,7 +22,7 @@ nodes
 |> Array.iter (fun node ->
     node
     |> Node.setUpdate (fun time state -> 
-        { state with color = (0.f, 0.f, 1.f) }
+        state.r <~ 0.f
     ))
 
 printfn "%A" nodes.Length

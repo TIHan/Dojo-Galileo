@@ -10,17 +10,13 @@ type Node = interface end
 and Node<'T> =
     {
         id: int
-        mutable previousModel: 'T
-        mutable currentModel: 'T
-        mutable update: GameEnvironment -> 'T -> 'T
+        mutable model: 'T
+        mutable update: GameEnvironment -> 'T -> unit
         render: (GameEnvironment -> float32 -> 'T -> 'T -> unit) Lazy
     }
 
     member this.Update env =
-        this.previousModel <- this.currentModel
-        this.currentModel <- this.update env this.currentModel
-       // this.previousModel <- this.currentModel
-        ()
+        this.update env this.model
 
     member this.SetUpdate update =
         this.update <- fun env x -> update env.time x
@@ -51,8 +47,7 @@ and GameEnvironment =
         let node =
             {
                 id = 0
-                currentModel = model
-                previousModel = model
+                model = model
                 update = update
                 render = render
             }
@@ -62,7 +57,7 @@ and GameEnvironment =
     member this.AddNode<'T> (node: Node<'T>) =
         this.nodes.[this.length] <- Some (node :> Node)
         this.updates.[this.length] <- Some (fun () -> node.Update this)
-        this.renders.[this.length] <- Some (fun t -> node.render.Force() this t node.previousModel node.currentModel)
+        this.renders.[this.length] <- Some (fun t -> node.render.Force() this t node.model node.model)
         this.length <- this.length + 1
 
     member this.UpdateNodes () =
@@ -78,6 +73,29 @@ and GameEnvironment =
             match x with
             | None -> ()
             | Some render -> render t)
+
+and [<Sealed>]
+    GameField<'T when 'T : unmanaged> (value) =
+    let history = Array.zeroCreate<'T> 30
+    let mutable index = 29
+    let mutable value = value
+
+    member inline private this.CurrentHistory = history
+
+    member inline private this.Index
+        with get () = index
+        and set index2 = index <- index2
+
+    member this.Value
+        with get () = value
+        and inline private set value2 = value <- value2
+
+    member this.History = 
+        Array.copy history
+
+    static member (<~) (gf: GameField<'T>, value: 'T) =
+        gf.Value <- value
+        gf.History.[gf.Index] <- value
 
 // http://gafferongames.com/game-physics/fix-your-timestep/
 module GameLoop =

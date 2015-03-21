@@ -7,9 +7,11 @@ open Game
 
 type Sphere =
     {
-        translation: Matrix4x4
-        rotation: Matrix4x4
-        color: float32 * float32 * float32
+        translation: GameField<Matrix4x4>
+        rotation: GameField<Matrix4x4>
+        r: GameField<float32>
+        g: GameField<float32>
+        b: GameField<float32>
     }
 
 [<RequireQualifiedAccess>]
@@ -23,4 +25,4 @@ module Galileo =
 
 module Node =
 
-    val setUpdate : (TimeSpan -> 'T -> 'T) -> Node<'T> -> unit
+    val setUpdate : (TimeSpan -> 'T -> unit) -> Node<'T> -> unit
