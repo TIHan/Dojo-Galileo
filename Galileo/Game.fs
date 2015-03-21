@@ -7,11 +7,12 @@ open System.Collections.Concurrent
 
 type Node = interface end
 
-and Node<'T> =
+and [<NoComparison; ReferenceEquality>]
+    Node<'T> =
     {
         id: int
         mutable model: 'T
-        mutable update: GameEnvironment -> 'T -> unit
+        mutable update: GameEnvironment -> 'T -> Game<unit>
         render: (GameEnvironment -> float32 -> 'T -> 'T -> unit) Lazy
     }
 
@@ -23,7 +24,8 @@ and Node<'T> =
 
     interface Node
 
-and GameEnvironment =
+and [<NoComparison; ReferenceEquality>]
+    GameEnvironment =
     {
         nodes: (Node option) []
         updates: ((unit -> unit) option) []
@@ -56,7 +58,7 @@ and GameEnvironment =
 
     member this.AddNode<'T> (node: Node<'T>) =
         this.nodes.[this.length] <- Some (node :> Node)
-        this.updates.[this.length] <- Some (fun () -> node.Update this)
+        this.updates.[this.length] <- Some (fun () -> node.Update this |> Game.Unpack)
         this.renders.[this.length] <- Some (fun t -> node.render.Force() this t node.model node.model)
         this.length <- this.length + 1
 
@@ -73,29 +75,51 @@ and GameEnvironment =
             match x with
             | None -> ()
             | Some render -> render t)
+and
+    GameField<'T when 'T : unmanaged> =
+        {
+            history: 'T []
+            mutable index: int
+            mutable value: 'T
+        }
+
+        member this.Value = this.value
+
+        member this.History = this.history |> Array.copy
+
+        static member Create (value: 'T) =
+            {
+                history = Array.zeroCreate 30
+                index = 0
+                value = value
+            }
+
+        static member (<~) (gf: GameField<'T>, value: 'T) =
+            Game (fun () -> gf.value <- value)
+
+and Game () =
+    
+    static member Unpack (Game x) : unit = x ()
+
+and [<NoComparison; ReferenceEquality>]
+    Game<'T> = private Game of (unit -> 'T)
 
 and [<Sealed>]
-    GameField<'T when 'T : unmanaged> (value) =
-    let history = Array.zeroCreate<'T> 30
-    let mutable index = 29
-    let mutable value = value
+    GameBuilder () =
 
-    member inline private this.CurrentHistory = history
+    member this.Bind (Game x : Game<'a>, f: 'a -> Game<'b>) : Game<'b> = 
+        f (x ())
 
-    member inline private this.Index
-        with get () = index
-        and set index2 = index <- index2
+    member this.Return (x: 'a) : Game<'a> =
+        Game (fun () -> x)
 
-    member this.Value
-        with get () = value
-        and inline private set value2 = value <- value2
+    member this.Zero () : Game<unit> =
+        Game id
 
-    member this.History = 
-        Array.copy history
-
-    static member (<~) (gf: GameField<'T>, value: 'T) =
-        gf.Value <- value
-        gf.History.[gf.Index] <- value
+[<AutoOpen>]
+module GameModule =
+    let game = GameBuilder ()
+        
 
 // http://gafferongames.com/game-physics/fix-your-timestep/
 module GameLoop =
@@ -114,7 +138,8 @@ module GameLoop =
         let skip = (1000. / 5.) * 10000. |> int64
 
         let stopwatch = Stopwatch.StartNew ()
-        let inline time () = stopwatch.Elapsed.Ticks
+        let inline time () = 
+            stopwatch.Elapsed.Ticks
 
         let rec loop gl =
             let currentTime = time ()

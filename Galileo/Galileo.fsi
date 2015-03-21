@@ -5,6 +5,7 @@ open System.Numerics
 
 open Game
 
+[<NoComparison; ReferenceEquality>]
 type Sphere =
     {
         translation: GameField<Matrix4x4>
@@ -25,4 +26,4 @@ module Galileo =
 
 module Node =
 
-    val setUpdate : (TimeSpan -> 'T -> unit) -> Node<'T> -> unit
+    val setUpdate : (TimeSpan -> 'T -> Game<unit>) -> Node<'T> -> unit

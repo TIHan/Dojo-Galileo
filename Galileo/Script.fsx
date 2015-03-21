@@ -6,6 +6,7 @@
 open System
 open System.Numerics
 open Galileo
+open Game
 
 Environment.CurrentDirectory <- __SOURCE_DIRECTORY__
 Runtime.GCSettings.LatencyMode <- Runtime.GCLatencyMode.Batch
@@ -18,11 +19,11 @@ let nodes = Galileo.spawnMultipleSpheres ()
 
 // ------------------------------------------------------------------------- //
 
+let gameUnit = game { () }
 nodes
 |> Array.iter (fun node ->
     node
-    |> Node.setUpdate (fun time state -> 
-        state.r <~ 0.f
+    |> Node.setUpdate (fun time state -> gameUnit
     ))
 
 printfn "%A" nodes.Length

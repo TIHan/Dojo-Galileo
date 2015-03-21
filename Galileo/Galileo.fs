@@ -9,7 +9,7 @@ open System.Collections.Generic
 open Ferop
 open Game
 
-
+[<NoComparison; ReferenceEquality>]
 type Sphere =
     {
         translation: GameField<Matrix4x4>
@@ -109,14 +109,14 @@ module Galileo =
 
                     let ent : Sphere =
                         {
-                            translation = GameField (Matrix4x4.Identity)
-                            rotation = GameField (Matrix4x4.Identity)
-                            r = GameField (0.f)
-                            g = GameField (1.f)
-                            b = GameField (0.f)
+                            translation = GameField.Create (Matrix4x4.Identity)
+                            rotation = GameField.Create (Matrix4x4.Identity)
+                            r = GameField.Create (0.f)
+                            g = GameField.Create (1.f)
+                            b = GameField.Create (0.f)
                         }
 
-                    let x = fun _ _ -> ()
+                    let x = fun _ _ -> game { () }
                     let y =
                         lazy
                             let nbo = R.CreateVBO normals
@@ -143,9 +143,9 @@ module Galileo =
         env.CreateNode (lazyF.Force())
 
     let spawnMultipleSpheresHandler env =
-        Array.init 10000 (fun _ -> spawnSphereHandler env)
+        Array.init 50000 (fun _ -> spawnSphereHandler env)
 
-    [<RequireQualifiedAccess>]
+    [<RequireQualifiedAccess; NoComparison; ReferenceEquality>]
     type Command =
         | SpawnSphere of AsyncReplyChannel<Node<Sphere>>
         | SpawnMultipleSpheres of AsyncReplyChannel<Node<Sphere>[]>
@@ -198,7 +198,7 @@ module Galileo =
                     R.SetModel shaderProgram model
                     R.SetCameraPosition shaderProgram cameraPosition
 
-                    //env.RenderNodes (t)
+                    env.RenderNodes (t)
 
                     R.Draw r
                 )
