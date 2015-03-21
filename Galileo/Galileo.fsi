@@ -26,4 +26,4 @@ module Galileo =
 
 module Node =
 
-    val setUpdate : (TimeSpan -> 'T -> Game<unit>) -> Node<'T> -> unit
+    val setUpdate : (TimeSpan -> 'T -> unit) -> Node<'T> -> unit

@@ -12,7 +12,7 @@ and [<NoComparison; ReferenceEquality>]
     {
         id: int
         mutable model: 'T
-        mutable update: GameEnvironment -> 'T -> Game<unit>
+        mutable update: GameEnvironment -> 'T -> unit
         render: (GameEnvironment -> float32 -> 'T -> 'T -> unit) Lazy
     }
 
@@ -58,7 +58,7 @@ and [<NoComparison; ReferenceEquality>]
 
     member this.AddNode<'T> (node: Node<'T>) =
         this.nodes.[this.length] <- Some (node :> Node)
-        this.updates.[this.length] <- Some (fun () -> node.Update this |> Game.Unpack)
+        this.updates.[this.length] <- Some (fun () -> node.Update this)
         this.renders.[this.length] <- Some (fun t -> node.render.Force() this t node.model node.model)
         this.length <- this.length + 1
 
@@ -94,32 +94,7 @@ and
                 value = value
             }
 
-        static member (<~) (gf: GameField<'T>, value: 'T) =
-            Game (fun () -> gf.value <- value)
-
-and Game () =
-    
-    static member Unpack (Game x) : unit = x ()
-
-and [<NoComparison; ReferenceEquality>]
-    Game<'T> = private Game of (unit -> 'T)
-
-and [<Sealed>]
-    GameBuilder () =
-
-    member this.Bind (Game x : Game<'a>, f: 'a -> Game<'b>) : Game<'b> = 
-        f (x ())
-
-    member this.Return (x: 'a) : Game<'a> =
-        Game (fun () -> x)
-
-    member this.Zero () : Game<unit> =
-        Game id
-
-[<AutoOpen>]
-module GameModule =
-    let game = GameBuilder ()
-        
+        static member (<~) (gf: GameField<'T>, value: 'T) = gf.value <- value   
 
 // http://gafferongames.com/game-physics/fix-your-timestep/
 module GameLoop =

@@ -19,12 +19,12 @@ let nodes = Galileo.spawnMultipleSpheres ()
 
 // ------------------------------------------------------------------------- //
 
-let gameUnit = game { () }
 nodes
 |> Array.iter (fun node ->
     node
-    |> Node.setUpdate (fun time state -> gameUnit
-    ))
+    |> Node.setUpdate (fun time state -> 
+        state.r <~ 0.f
+        ()))
 
 printfn "%A" nodes.Length
 

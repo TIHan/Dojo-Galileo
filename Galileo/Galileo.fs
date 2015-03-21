@@ -116,7 +116,7 @@ module Galileo =
                             b = GameField.Create (0.f)
                         }
 
-                    let x = fun _ _ -> game { () }
+                    let x = fun _ _ -> ()
                     let y =
                         lazy
                             let nbo = R.CreateVBO normals
@@ -198,7 +198,7 @@ module Galileo =
                     R.SetModel shaderProgram model
                     R.SetCameraPosition shaderProgram cameraPosition
 
-                    env.RenderNodes (t)
+                    //env.RenderNodes (t)
 
                     R.Draw r
                 )

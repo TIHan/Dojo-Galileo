@@ -18,7 +18,7 @@ nodes
     node
     |> Node.setUpdate (fun time state -> 
         state.r <~ 0.f
-    ))
+        ()))
 
 [<EntryPoint>]
 let main argv = 
