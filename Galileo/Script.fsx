@@ -23,12 +23,14 @@ let node2 = Galileo.spawnSphere ()
 node
 |> Node.setUpdate (fun time sphere ->
     sphere.scale <~ Matrix4x4.CreateScale(3.f)
-
+    sphere.r <~ 0.f
+    sphere.g <~ 0.f
+    sphere.b <~ 1.f
 )
 
 node2
 |> Node.setUpdate (fun time sphere ->
-    sphere.scale <~ Matrix4x4.CreateScale(0.f)
-
-    sphere.rotation <~ Matrix4x4.CreateRotationZ(cos(single time.TotalSeconds))
+    sphere.scale <~ Matrix4x4.CreateScale(0.5f)
+    sphere.translation <~ Matrix4x4.CreateTranslation(Vector3(5.f, 5.f, 0.f))
+    sphere.rotation <~ Matrix4x4.CreateRotationY(cos(single time.TotalSeconds))
 )
