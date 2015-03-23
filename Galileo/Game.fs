@@ -48,7 +48,7 @@ and [<NoComparison; ReferenceEquality>]
     member this.CreateNode<'T> (model: 'T, update, render) =
         let node =
             {
-                id = 0
+                id = this.length
                 model = model
                 update = update
                 render = render

@@ -10,6 +10,7 @@ type Sphere =
     {
         translation: GameField<Matrix4x4>
         rotation: GameField<Matrix4x4>
+        scale: GameField<Matrix4x4>
         r: GameField<float32>
         g: GameField<float32>
         b: GameField<float32>
