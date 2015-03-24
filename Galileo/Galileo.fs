@@ -12,13 +12,13 @@ open Game
 [<NoComparison; ReferenceEquality>]
 type Sphere =
     {
-        translation: GameField<Matrix4x4>
-        rotation: GameField<Matrix4x4>
-        scale: GameField<Matrix4x4>
-        rotationAmount: GameField<single>
-        r: GameField<float32>
-        g: GameField<float32>
-        b: GameField<float32>
+        translation: Matrix4x4
+        rotation: Matrix4x4
+        scale: Matrix4x4
+        rotationAmount: single
+        r: float32
+        g: float32
+        b: float32
     }
 
 [<RequireQualifiedAccess>]
@@ -48,7 +48,7 @@ module Galileo =
             4; 5; 1;
         |]
 
-    let spawnSphereHandler (env: GameEnvironment) : Node<Sphere> =
+    let spawnSphereHandler (env: GameEnvironment) : GameEntity<Sphere> =
         let vertices =
             octahedron_idx
             |> Array.map (fun i -> octahedron_vtx.[i])
@@ -107,16 +107,16 @@ module Galileo =
 
         let ent : Sphere =
             {
-                translation = GameField.Create (Matrix4x4.Identity)
-                rotation = GameField.Create (Matrix4x4.Identity)
-                scale = GameField.Create (Matrix4x4.Identity)
-                rotationAmount = GameField.Create (0.f)
-                r = GameField.Create (0.f)
-                g = GameField.Create (1.f)
-                b = GameField.Create (0.f)
+                translation = Matrix4x4.Identity
+                rotation = Matrix4x4.Identity
+                scale = Matrix4x4.Identity
+                rotationAmount = 0.f
+                r = 0.f
+                g = 1.f
+                b = 0.f
             }
 
-        let x = fun _ _ -> ()
+        let x = fun _ x -> x
         let y =
             lazy
                 let nbo = R.CreateVBO normals
@@ -124,29 +124,29 @@ module Galileo =
 
                 fun env t prev curr ->
                     ()
-                    let translation = lerp prev.translation.Value curr.translation.Value t
-                    let rotation = lerp prev.rotation.Value curr.rotation.Value t
-                    let scale = lerp prev.scale.Value curr.scale.Value t
+                    let translation = lerp prev.translation curr.translation t
+                    let rotation = lerp prev.rotation curr.rotation t
+                    let scale = lerp prev.scale curr.scale t
 
                     R.SetModel env.defaultShaderProgram (translation * rotation * scale)
 
-                    let r = curr.r.Value
-                    let g = curr.g.Value
-                    let b = curr.b.Value
+                    let r = curr.r
+                    let g = curr.g
+                    let b = curr.b
                     R.SetColor env.defaultShaderProgram r g b
 
                     let (VBO (nbo, _)) = nbo
                     R.DrawVBOAsTrianglesWithNBO vbo nbo
 
-        env.CreateNode (ent, x, y)
+        env.CreateEntity (ent, x, y)
 
-    let spawnMultipleSpheresHandler env =
-        Array.init 50000 (fun _ -> spawnSphereHandler env)
+    let spawnSpheresHandler env amount =
+        Array.init amount (fun _ -> spawnSphereHandler env)
 
     [<RequireQualifiedAccess; NoComparison; ReferenceEquality>]
     type Command =
-        | SpawnSphere of AsyncReplyChannel<Node<Sphere>>
-        | SpawnMultipleSpheres of AsyncReplyChannel<Node<Sphere>[]>
+        | SpawnSphere of AsyncReplyChannel<GameEntity<Sphere>>
+        | SpawnSpheres of int * AsyncReplyChannel<GameEntity<Sphere>[]>
 
     let window = ref IntPtr.Zero
     let proc = new MailboxProcessor<Command> (fun inbox ->
@@ -157,7 +157,7 @@ module Galileo =
         let handleMessages =
             function
             | Command.SpawnSphere (ch) -> spawnSphereHandler env |> ch.Reply
-            | Command.SpawnMultipleSpheres (ch) -> spawnMultipleSpheresHandler env |> ch.Reply
+            | Command.SpawnSpheres (amount, ch) -> spawnSpheresHandler env amount |> ch.Reply
 
         let rec loop () = async {
             let rec executeCommands () =
@@ -179,7 +179,7 @@ module Galileo =
 
                     executeCommands ()
 
-                    env.UpdateNodes ()
+                    env.UpdateEntities ()
                 )
                 // client/render
                 (fun t ->
@@ -196,7 +196,7 @@ module Galileo =
                     R.SetModel shaderProgram model
                     R.SetCameraPosition shaderProgram cameraPosition
 
-                    env.RenderNodes (t)
+                    env.RenderEntities (t)
 
                     R.Draw r
                 )
@@ -213,9 +213,9 @@ module Galileo =
     let spawnSphere () =
         proc.PostAndReply (fun ch -> Command.SpawnSphere (ch))
 
-    let spawnMultipleSpheres () =
-        proc.PostAndReply (fun ch -> Command.SpawnMultipleSpheres (ch))
+    let spawnSpheres amount =
+        proc.PostAndReply (fun ch -> Command.SpawnSpheres (amount, ch))
 
-module Node =
-    let setUpdate f (node: Node<'T>) =
-        node.SetUpdate f
+module GameEntity =
+    let setUpdate f (entity: GameEntity<'T>) =
+        entity.SetUpdate f

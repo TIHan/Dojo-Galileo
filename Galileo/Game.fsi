@@ -3,29 +3,18 @@
 open System
 open System.Collections.Generic
 
-[<Sealed>]
-type GameField<'T when 'T : unmanaged> =
-
-    member Value : 'T
-
-    member History : 'T []
-
-    static member Create : 'T -> GameField<'T>
-
-    static member (<~) : GameField<'T> * 'T -> unit
-
-type Node = interface end
+type GameEntity = interface end
 
 [<Sealed>]
-type Node<'T> =
-    member SetUpdate : (TimeSpan -> 'T -> unit) -> unit
+type GameEntity<'T> =
+    member SetUpdate : (TimeSpan -> 'T -> 'T) -> unit
 
-    interface Node
+    interface GameEntity
 
 [<NoComparison; ReferenceEquality>]
 type GameEnvironment =
     {
-        nodes: (Node option) []
+        entities: (GameEntity option) []
         updates: ((unit -> unit) option) []
         renders: ((float32 -> unit) option) []
         mutable length: int
@@ -35,11 +24,11 @@ type GameEnvironment =
 
     static member Create : unit -> GameEnvironment
 
-    member CreateNode<'T> : 'T * (GameEnvironment -> 'T -> unit) * (Lazy<GameEnvironment -> float32 -> 'T -> 'T -> unit>) -> Node<'T>
+    member CreateEntity<'T> : 'T * (GameEnvironment -> 'T -> 'T) * (Lazy<GameEnvironment -> float32 -> 'T -> 'T -> unit>) -> GameEntity<'T>
 
-    member UpdateNodes : unit -> unit
+    member UpdateEntities : unit -> unit
 
-    member RenderNodes : float32 -> unit
+    member RenderEntities : float32 -> unit
 
 module GameLoop =
 

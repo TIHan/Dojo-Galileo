@@ -9,30 +9,41 @@ open Galileo
 open Game
 
 Environment.CurrentDirectory <- __SOURCE_DIRECTORY__
-Runtime.GCSettings.LatencyMode <- Runtime.GCLatencyMode.Batch
 Galileo.init ()
 
 // ------------------------------------------------------------------------- //
 
-let node = Galileo.spawnSphere ()
+let entity = Galileo.spawnSphere ()
+
+entity
+|> GameEntity.setUpdate (fun time sphere ->
+    { sphere with
+        scale = Matrix4x4.CreateScale(3.f)
+        b = 1.f
+    }
+)
 
 // ------------------------------------------------------------------------- //
 
-let node2 = Galileo.spawnSphere ()
+let entity2 = Galileo.spawnSphere ()
 
-node
-|> Node.setUpdate (fun time sphere ->
-    sphere.scale <~ Matrix4x4.CreateScale(3.f)
-    sphere.r <~ 0.f
-    sphere.g <~ 0.f
-    sphere.b <~ 1.f
+entity2
+|> GameEntity.setUpdate (fun time sphere ->
+    let rotationAmount = sphere.rotationAmount + 0.1f
+    { sphere with
+        rotationAmount = rotationAmount
+        scale = Matrix4x4.CreateScale(0.5f)
+        translation = Matrix4x4.CreateTranslation(Vector3(10.f, 0.f, 0.f))
+        rotation = Matrix4x4.CreateRotationY(rotationAmount)
+    }
 )
 
-node2
-|> Node.setUpdate (fun time sphere ->
-    let rotationAmount = sphere.rotationAmount.Value + 0.1f
-    sphere.scale <~ Matrix4x4.CreateScale(0.5f)
-    sphere.translation <~ Matrix4x4.CreateTranslation(Vector3(10.f, 0.f, 0.f))
-    sphere.rotationAmount <~ rotationAmount
-    sphere.rotation <~ Matrix4x4.CreateRotationY(rotationAmount)
+// ------------------------------------------------------------------------- //
+
+let entities = Galileo.spawnSpheres 100
+entities
+|> Array.iter (fun entity ->
+    entity
+    |> GameEntity.setUpdate (fun time sphere -> { sphere with translation = Matrix4x4.Identity }
+    )
 )

@@ -5,29 +5,29 @@ open System.Diagnostics
 open System.Collections.Generic
 open System.Collections.Concurrent
 
-type Node = interface end
+type GameEntity = interface end
 
 and [<NoComparison; ReferenceEquality>]
-    Node<'T> =
+    GameEntity<'T> =
     {
         id: int
         mutable model: 'T
-        mutable update: GameEnvironment -> 'T -> unit
+        mutable update: GameEnvironment -> 'T -> 'T
         render: (GameEnvironment -> float32 -> 'T -> 'T -> unit) Lazy
     }
 
     member this.Update env =
-        this.update env this.model
+        this.model <- this.update env this.model
 
     member this.SetUpdate update =
         this.update <- fun env x -> update env.time x
 
-    interface Node
+    interface GameEntity
 
 and [<NoComparison; ReferenceEquality>]
     GameEnvironment =
     {
-        nodes: (Node option) []
+        entities: (GameEntity option) []
         updates: ((unit -> unit) option) []
         renders: ((float32 -> unit) option) []
         mutable length: int
@@ -37,7 +37,7 @@ and [<NoComparison; ReferenceEquality>]
 
     static member Create () =
         {
-            nodes = Array.init (65536) (fun _ -> None)
+            entities = Array.init (65536) (fun _ -> None)
             updates = Array.init (65536) (fun _ -> None)
             renders = Array.init (65536) (fun _ -> None)
             length = 0
@@ -45,56 +45,36 @@ and [<NoComparison; ReferenceEquality>]
             defaultShaderProgram = 0
         }
 
-    member this.CreateNode<'T> (model: 'T, update, render) =
-        let node =
+    member this.CreateEntity<'T> (model: 'T, update, render) =
+        let entity =
             {
                 id = this.length
                 model = model
                 update = update
                 render = render
             }
-        this.AddNode node
-        node
+        this.AddNode entity
+        entity
 
-    member this.AddNode<'T> (node: Node<'T>) =
-        this.nodes.[this.length] <- Some (node :> Node)
-        this.updates.[this.length] <- Some (fun () -> node.Update this)
-        this.renders.[this.length] <- Some (fun t -> node.render.Force() this t node.model node.model)
+    member this.AddNode<'T> (entity: GameEntity<'T>) =
+        this.entities.[this.length] <- Some (entity :> GameEntity)
+        this.updates.[this.length] <- Some (fun () -> entity.Update this)
+        this.renders.[this.length] <- Some (fun t -> entity.render.Force() this t entity.model entity.model)
         this.length <- this.length + 1
 
-    member this.UpdateNodes () =
+    member this.UpdateEntities () =
         this.updates
         |> Array.iter (fun x ->
             match x with
             | None -> ()
             | Some update -> update ())
 
-    member this.RenderNodes t =
+    member this.RenderEntities t =
         this.renders
         |> Array.iter (fun x ->
             match x with
             | None -> ()
-            | Some render -> render t)
-and
-    GameField<'T when 'T : unmanaged> =
-        {
-            history: 'T []
-            mutable index: int
-            mutable value: 'T
-        }
-
-        member this.Value = this.value
-
-        member this.History = this.history |> Array.copy
-
-        static member Create (value: 'T) =
-            {
-                history = Array.zeroCreate 30
-                index = 0
-                value = value
-            }
-
-        static member (<~) (gf: GameField<'T>, value: 'T) = gf.value <- value   
+            | Some render -> render t)  
 
 // http://gafferongames.com/game-physics/fix-your-timestep/
 module GameLoop =
