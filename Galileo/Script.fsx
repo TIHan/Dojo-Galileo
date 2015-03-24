@@ -30,7 +30,9 @@ node
 
 node2
 |> Node.setUpdate (fun time sphere ->
+    let rotationAmount = sphere.rotationAmount.Value + 0.1f
     sphere.scale <~ Matrix4x4.CreateScale(0.5f)
-    sphere.translation <~ Matrix4x4.CreateTranslation(Vector3(5.f, 5.f, 0.f))
-    sphere.rotation <~ Matrix4x4.CreateRotationY(cos(single time.TotalSeconds))
+    sphere.translation <~ Matrix4x4.CreateTranslation(Vector3(10.f, 0.f, 0.f))
+    sphere.rotationAmount <~ rotationAmount
+    sphere.rotation <~ Matrix4x4.CreateRotationY(rotationAmount)
 )

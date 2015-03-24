@@ -180,3 +180,4 @@ module GameLoop =
               RenderFrameCount = 0
               RenderFrameCountTime = 0L
               RenderFrameLastCount = 0 }
+

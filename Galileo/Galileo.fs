@@ -15,6 +15,7 @@ type Sphere =
         translation: GameField<Matrix4x4>
         rotation: GameField<Matrix4x4>
         scale: GameField<Matrix4x4>
+        rotationAmount: GameField<single>
         r: GameField<float32>
         g: GameField<float32>
         b: GameField<float32>
@@ -109,6 +110,7 @@ module Galileo =
                 translation = GameField.Create (Matrix4x4.Identity)
                 rotation = GameField.Create (Matrix4x4.Identity)
                 scale = GameField.Create (Matrix4x4.Identity)
+                rotationAmount = GameField.Create (0.f)
                 r = GameField.Create (0.f)
                 g = GameField.Create (1.f)
                 b = GameField.Create (0.f)
