@@ -141,7 +141,7 @@ module Galileo =
         env.CreateNode (ent, x, y)
 
     let spawnMultipleSpheresHandler env =
-        Array.init 50000 (fun _ -> spawnSphereHandler env)
+        Array.init 1000 (fun _ -> spawnSphereHandler env)
 
     [<RequireQualifiedAccess; NoComparison; ReferenceEquality>]
     type Command =

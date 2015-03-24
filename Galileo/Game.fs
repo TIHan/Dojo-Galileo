@@ -94,7 +94,9 @@ and
                 value = value
             }
 
-        static member (<~) (gf: GameField<'T>, value: 'T) = gf.value <- value   
+        static member (<~) (gf: GameField<'T>, value: 'T) = 
+            gf.value <- value   
+            gf.history.[0] <- value
 
 // http://gafferongames.com/game-physics/fix-your-timestep/
 module GameLoop =
