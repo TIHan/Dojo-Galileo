@@ -5,42 +5,56 @@ open System.Diagnostics
 open System.Collections.Generic
 open System.Collections.Concurrent
 
-type GameEntity = interface end
+type GameEntityUpdate<'T> = GameEnvironment -> 'T -> 'T
+
+and GameEntityRender<'T> = GameEnvironment -> 'T -> 'T -> unit
+
+and IGameEntity =
+    abstract Id : int
+    abstract Update : GameEnvironment -> unit
+    abstract Render : GameEnvironment -> unit
 
 and [<NoComparison; ReferenceEquality>]
     GameEntity<'T> =
     {
         id: int
+        env: GameEnvironment
+        mutable prevModel: 'T
         mutable model: 'T
-        mutable update: GameEnvironment -> 'T -> 'T
-        render: (GameEnvironment -> float32 -> 'T -> 'T -> unit) Lazy
+        mutable update: GameEntityUpdate<'T>
+        mutable render: GameEntityRender<'T>
     }
-
-    member this.Update env =
-        this.model <- this.update env this.model
 
     member this.SetUpdate update =
         this.update <- fun env x -> update env.time x
 
-    interface GameEntity
+    interface IGameEntity with
+
+        member this.Id = this.id
+
+        member this.Update env =
+            this.prevModel <- this.model
+            this.model <- this.update env this.model
+
+        member this.Render env =
+            this.render env this.prevModel this.model
+            
 
 and [<NoComparison; ReferenceEquality>]
     GameEnvironment =
     {
-        entities: (GameEntity option) []
-        updates: ((unit -> unit) option) []
-        renders: ((float32 -> unit) option) []
+        entities: (IGameEntity option) []
         mutable length: int
         mutable time: TimeSpan
+        mutable renderDelta: float32
         mutable defaultShaderProgram: int
     }
 
     static member Create () =
         {
             entities = Array.init (65536) (fun _ -> None)
-            updates = Array.init (65536) (fun _ -> None)
-            renders = Array.init (65536) (fun _ -> None)
             length = 0
+            renderDelta = 0.f
             time = TimeSpan.Zero
             defaultShaderProgram = 0
         }
@@ -49,32 +63,32 @@ and [<NoComparison; ReferenceEquality>]
         let entity =
             {
                 id = this.length
+                env = this
+                prevModel = model
                 model = model
                 update = update
                 render = render
             }
-        this.AddNode entity
+        this.AddEntity entity
         entity
 
-    member this.AddNode<'T> (entity: GameEntity<'T>) =
-        this.entities.[this.length] <- Some (entity :> GameEntity)
-        this.updates.[this.length] <- Some (fun () -> entity.Update this)
-        this.renders.[this.length] <- Some (fun t -> entity.render.Force() this t entity.model entity.model)
+    member this.AddEntity<'T> (entity: GameEntity<'T>) =
+        this.entities.[this.length] <- Some (entity :> IGameEntity)
         this.length <- this.length + 1
 
     member this.UpdateEntities () =
-        this.updates
-        |> Array.iter (fun x ->
-            match x with
+        this.entities
+        |> Array.iter (fun ent ->
+            match ent with
             | None -> ()
-            | Some update -> update ())
+            | Some ent -> ent.Update this)
 
-    member this.RenderEntities t =
-        this.renders
-        |> Array.iter (fun x ->
-            match x with
+    member this.RenderEntities () =
+        this.entities
+        |> Array.iter (fun ent ->
+            match ent with
             | None -> ()
-            | Some render -> render t)  
+            | Some ent -> ent.Render this)
 
 // http://gafferongames.com/game-physics/fix-your-timestep/
 module GameLoop =

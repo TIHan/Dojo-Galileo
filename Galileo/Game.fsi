@@ -3,32 +3,39 @@
 open System
 open System.Collections.Generic
 
-type GameEntity = interface end
+type GameEntityUpdate<'T> = GameEnvironment -> 'T -> 'T
 
-[<Sealed>]
-type GameEntity<'T> =
+and GameEntityRender<'T> = GameEnvironment -> 'T -> 'T -> unit
+
+and IGameEntity =
+    abstract Id : int
+    abstract Update : GameEnvironment -> unit
+    abstract Render : GameEnvironment -> unit
+
+and [<Sealed>]
+    GameEntity<'T> =
+
     member SetUpdate : (TimeSpan -> 'T -> 'T) -> unit
 
-    interface GameEntity
+    interface IGameEntity
 
-[<NoComparison; ReferenceEquality>]
-type GameEnvironment =
+and [<NoComparison; ReferenceEquality>]
+    GameEnvironment =
     {
-        entities: (GameEntity option) []
-        updates: ((unit -> unit) option) []
-        renders: ((float32 -> unit) option) []
+        entities: (IGameEntity option) []
         mutable length: int
         mutable time: TimeSpan
+        mutable renderDelta: float32
         mutable defaultShaderProgram: int
     }
 
     static member Create : unit -> GameEnvironment
 
-    member CreateEntity<'T> : 'T * (GameEnvironment -> 'T -> 'T) * (Lazy<GameEnvironment -> float32 -> 'T -> 'T -> unit>) -> GameEntity<'T>
+    member CreateEntity<'T> : 'T * GameEntityUpdate<'T> * GameEntityRender<'T> -> GameEntity<'T>
 
     member UpdateEntities : unit -> unit
 
-    member RenderEntities : float32 -> unit
+    member RenderEntities : unit -> unit
 
 module GameLoop =
 

@@ -116,27 +116,25 @@ module Galileo =
                 b = 0.f
             }
 
+        let nbo = R.CreateVBO normals
+        let vbo = R.CreateVBO vertices
+
         let x = fun _ x -> x
         let y =
-            lazy
-                let nbo = R.CreateVBO normals
-                let vbo = R.CreateVBO vertices
+            fun env prev curr ->
+                let translation = lerp prev.translation curr.translation env.renderDelta
+                let rotation = lerp prev.rotation curr.rotation env.renderDelta
+                let scale = lerp prev.scale curr.scale env.renderDelta
 
-                fun env t prev curr ->
-                    ()
-                    let translation = lerp prev.translation curr.translation t
-                    let rotation = lerp prev.rotation curr.rotation t
-                    let scale = lerp prev.scale curr.scale t
+                R.SetModel env.defaultShaderProgram (translation * rotation * scale)
 
-                    R.SetModel env.defaultShaderProgram (translation * rotation * scale)
+                let r = curr.r
+                let g = curr.g
+                let b = curr.b
+                R.SetColor env.defaultShaderProgram r g b
 
-                    let r = curr.r
-                    let g = curr.g
-                    let b = curr.b
-                    R.SetColor env.defaultShaderProgram r g b
-
-                    let (VBO (nbo, _)) = nbo
-                    R.DrawVBOAsTrianglesWithNBO vbo nbo
+                let (VBO (nbo, _)) = nbo
+                R.DrawVBOAsTrianglesWithNBO vbo nbo
 
         env.CreateEntity (ent, x, y)
 
@@ -182,7 +180,9 @@ module Galileo =
                     env.UpdateEntities ()
                 )
                 // client/render
-                (fun t ->
+                (fun renderDelta ->
+                    env.renderDelta <- renderDelta
+
                     R.Clear ()
 
                     let cameraPosition = Vector3 (0.f, 0.f, 8.f)
@@ -196,7 +196,7 @@ module Galileo =
                     R.SetModel shaderProgram model
                     R.SetCameraPosition shaderProgram cameraPosition
 
-                    env.RenderEntities (t)
+                    env.RenderEntities ()
 
                     R.Draw r
                 )
