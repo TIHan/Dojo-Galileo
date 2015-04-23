@@ -8,6 +8,7 @@ open System.Collections.Generic
 
 open Ferop
 open Game
+open Input
 
 [<NoComparison; ReferenceEquality>]
 type Sphere =
@@ -25,6 +26,8 @@ type Sphere =
 module Galileo =
 
     let inline lerp x y t = x + (y - x) * t
+
+    let inputState = ref Unchecked.defaultof<InputState>
 
     let octahedron_vtx = 
         [|
@@ -148,6 +151,7 @@ module Galileo =
 
     let window = ref IntPtr.Zero
     let proc = new MailboxProcessor<Command> (fun inbox ->
+        window := R.CreateWindow ()
         let window = !window
 
         let env = GameEnvironment.Create ()
@@ -169,11 +173,16 @@ module Galileo =
             let shaderProgram = R.LoadShaders ()
 
             env.defaultShaderProgram <- shaderProgram
-            GameLoop.start id
+            GameLoop.start
+                (fun () ->
+                    Input.pollEvents ()
+                )
                 // server/client
                 (fun time interval ->
                     env.time <- TimeSpan.FromTicks time
                     GC.Collect (0, GCCollectionMode.Forced, true)
+
+                    inputState := Input.getState()
 
                     executeCommands ()
 
@@ -205,7 +214,7 @@ module Galileo =
 
     let init () =
         printfn "Begin Initializing Galileo"
-        window := R.CreateWindow ()
+        //window := R.CreateWindow ()
         proc.Start ()
         proc.Error.Add (fun ex -> printfn "%A" ex)
         ()
@@ -215,6 +224,9 @@ module Galileo =
 
     let spawnSpheres amount =
         proc.PostAndReply (fun ch -> Command.SpawnSpheres (amount, ch))
+
+    let getInputState () =
+        !inputState
 
 module GameEntity =
     let setUpdate f (entity: GameEntity<'T>) =
