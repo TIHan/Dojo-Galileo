@@ -27,8 +27,6 @@ module Galileo =
 
     let inline lerp x y t = x + (y - x) * t
 
-    let inputState = ref Unchecked.defaultof<InputState>
-
     let octahedron_vtx = 
         [|
            Vector3 (0.0f, -1.0f,  0.0f)
@@ -182,8 +180,6 @@ module Galileo =
                     env.time <- TimeSpan.FromTicks time
                     GC.Collect (0, GCCollectionMode.Forced, true)
 
-                    inputState := Input.getState()
-
                     executeCommands ()
 
                     env.UpdateEntities ()
@@ -224,9 +220,6 @@ module Galileo =
 
     let spawnSpheres amount =
         proc.PostAndReply (fun ch -> Command.SpawnSpheres (amount, ch))
-
-    let getInputState () =
-        !inputState
 
 module GameEntity =
     let setUpdate f (entity: GameEntity<'T>) =

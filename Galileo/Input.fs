@@ -2,6 +2,7 @@
 
 open Ferop
 
+open System.Collections.Generic
 open System.Runtime.InteropServices
 
 type MouseButtonType =
@@ -65,108 +66,137 @@ module Input =
 
     let inputEvents = ResizeArray<InputEvent> ()
 
+    let keyPressedSet = HashSet<char> ()
+
+    let mouseButtonPressedSet = HashSet<MouseButtonType> ()
+
+    let mutable state =
+        {
+            Events = []
+            Mouse = Unchecked.defaultof<MouseState>
+        }
+
     [<Export>]
     let dispatchKeyboardEvent (kbEvt: KeyboardEvent) : unit =
         inputEvents.Add (
+            let key = char kbEvt.KeyCode
             if kbEvt.IsPressed = 0 then 
-                InputEvent.KeyReleased (char kbEvt.KeyCode) 
+                keyPressedSet.Remove key |> ignore
+                InputEvent.KeyReleased key
             else 
-                InputEvent.KeyPressed (char kbEvt.KeyCode))
+                keyPressedSet.Add key |> ignore
+                InputEvent.KeyPressed key
+        )
 
     [<Export>]
     let dispatchMouseButtonEvent (mbEvt: MouseButtonEvent) : unit =
         inputEvents.Add (
+            let btn = mbEvt.Button
             if mbEvt.IsPressed = 0 then
-                InputEvent.MouseButtonReleased (mbEvt.Button)
+                mouseButtonPressedSet.Remove btn |> ignore
+                InputEvent.MouseButtonReleased btn
             else
-                InputEvent.MouseButtonPressed (mbEvt.Button))
+                mouseButtonPressedSet.Add btn |> ignore
+                InputEvent.MouseButtonPressed btn
+        )
 
     [<Export>]
     let dispatchMouseWheelEvent (evt: MouseWheelEvent) : unit =
         inputEvents.Add (InputEvent.MouseWheelScrolled (evt.X, evt.Y))
 
     [<Import; MI (MIO.NoInlining)>]
-    let pollEvents () : unit =
-        C """
-SDL_Event e;
-while (SDL_PollEvent (&e))
-{
-    if (e.type == SDL_KEYDOWN)
-    {
-        SDL_KeyboardEvent* event = (SDL_KeyboardEvent*)&e;
-        if (event->repeat != 0) continue;
-
-        Input_KeyboardEvent evt;
-        evt.IsPressed = 1;
-        evt.KeyCode = event->keysym.sym;
-        Input_dispatchKeyboardEvent (evt);
-    }
-    else if (e.type == SDL_KEYUP)
-    {
-        SDL_KeyboardEvent* event = (SDL_KeyboardEvent*)&e;
-        if (event->repeat != 0) continue;
-
-        Input_KeyboardEvent evt;
-        evt.IsPressed = 0;
-        evt.KeyCode = event->keysym.sym;
-
-        Input_dispatchKeyboardEvent (evt);
-    }
-    else if (e.type == SDL_MOUSEBUTTONDOWN)
-    {
-        SDL_MouseButtonEvent* event = (SDL_MouseButtonEvent*)&e;
-        
-        Input_MouseButtonEvent evt;
-        evt.IsPressed = 1;
-        evt.Clicks = event->clicks;
-        evt.Button = event->button;
-        evt.X = event->x;
-        evt.Y = event->y;
-
-        Input_dispatchMouseButtonEvent (evt);
-    }
-    else if (e.type == SDL_MOUSEBUTTONUP)
-    {
-        SDL_MouseButtonEvent* event = (SDL_MouseButtonEvent*)&e;
-        
-        Input_MouseButtonEvent evt;
-        evt.IsPressed = 0;
-        evt.Clicks = event->clicks;
-        evt.Button = event->button;
-        evt.X = event->x;
-        evt.Y = event->y;
-
-        Input_dispatchMouseButtonEvent (evt);
-    }
-    else if (e.type == SDL_MOUSEWHEEL)
-    {
-        SDL_MouseWheelEvent* event = (SDL_MouseWheelEvent*)&e;
-        
-        Input_MouseWheelEvent evt;
-        evt.X = event->x;
-        evt.Y = event->y;
-
-        Input_dispatchMouseWheelEvent (evt);
-    }
-} 
-        """
-
-    [<Import; MI (MIO.NoInlining)>]
     let getMouseState () : MouseState =
         C """
-int32_t x;
-int32_t y;
-Input_MouseState state;
-SDL_GetMouseState (&x, &y);
-state.X = x;
-state.Y = y;
-return state;
+        int32_t x;
+        int32_t y;
+        Input_MouseState state;
+        SDL_GetMouseState (&x, &y);
+        state.X = x;
+        state.Y = y;
+        return state;
         """
 
-    let getState () : InputState =
-        let mouse = getMouseState ()
+    [<Export>]
+    let setState () =
         let events = inputEvents |> List.ofSeq
         inputEvents.Clear ()
-        { Mouse = mouse
-          Events = events }
+        state <-
+            {
+                Events = events
+                Mouse = getMouseState ()
+            }
+
+    [<Import; MI (MIO.NoInlining)>]
+    let pollEvents () : unit =
+        C """
+        SDL_Event e;
+        while (SDL_PollEvent (&e))
+        {
+            if (e.type == SDL_KEYDOWN)
+            {
+                SDL_KeyboardEvent* event = (SDL_KeyboardEvent*)&e;
+                if (event->repeat != 0) continue;
+
+                Input_KeyboardEvent evt;
+                evt.IsPressed = 1;
+                evt.KeyCode = event->keysym.sym;
+                Input_dispatchKeyboardEvent (evt);
+            }
+            else if (e.type == SDL_KEYUP)
+            {
+                SDL_KeyboardEvent* event = (SDL_KeyboardEvent*)&e;
+                if (event->repeat != 0) continue;
+
+                Input_KeyboardEvent evt;
+                evt.IsPressed = 0;
+                evt.KeyCode = event->keysym.sym;
+
+                Input_dispatchKeyboardEvent (evt);
+            }
+            else if (e.type == SDL_MOUSEBUTTONDOWN)
+            {
+                SDL_MouseButtonEvent* event = (SDL_MouseButtonEvent*)&e;
+        
+                Input_MouseButtonEvent evt;
+                evt.IsPressed = 1;
+                evt.Clicks = event->clicks;
+                evt.Button = event->button;
+                evt.X = event->x;
+                evt.Y = event->y;
+
+                Input_dispatchMouseButtonEvent (evt);
+            }
+            else if (e.type == SDL_MOUSEBUTTONUP)
+            {
+                SDL_MouseButtonEvent* event = (SDL_MouseButtonEvent*)&e;
+        
+                Input_MouseButtonEvent evt;
+                evt.IsPressed = 0;
+                evt.Clicks = event->clicks;
+                evt.Button = event->button;
+                evt.X = event->x;
+                evt.Y = event->y;
+
+                Input_dispatchMouseButtonEvent (evt);
+            }
+            else if (e.type == SDL_MOUSEWHEEL)
+            {
+                SDL_MouseWheelEvent* event = (SDL_MouseWheelEvent*)&e;
+        
+                Input_MouseWheelEvent evt;
+                evt.X = event->x;
+                evt.Y = event->y;
+
+                Input_dispatchMouseWheelEvent (evt);
+            }
+        }
+        
+        Input_setState (); 
+        """
+
+    let getState () : InputState = state
+
+    let isKeyPressed key = keyPressedSet.Contains key
+
+    let isMouseButtonPressed btn = mouseButtonPressedSet.Contains btn
         

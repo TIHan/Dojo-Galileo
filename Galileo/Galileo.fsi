@@ -27,8 +27,6 @@ module Galileo =
 
     val spawnSpheres : int -> GameEntity<Sphere> []
 
-    val getInputState : unit -> Input.InputState
-
 module GameEntity =
 
     val setUpdate : (TimeSpan -> 'T -> 'T) -> GameEntity<'T> -> unit

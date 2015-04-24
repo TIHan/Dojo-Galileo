@@ -1,6 +1,7 @@
 ﻿open System
 open System.Numerics
 open Galileo
+open Input
 open Game
 
 Galileo.init ()
@@ -24,18 +25,10 @@ let entity2 = Galileo.spawnSphere ()
 entity2
 |> GameEntity.setUpdate (fun time sphere ->
 
-    let input = Galileo.getInputState ()
-
     let sphere =
-        input.Events
-        |> List.fold (fun sphere evt ->
-            
-            match evt with
-            | Input.InputEvent.MouseButtonPressed t ->               
-                { sphere with rotationAmount = sphere.rotationAmount + 0.1f }
-
-            | _ -> sphere
-        ) sphere
+        if Input.isMouseButtonPressed MouseButtonType.Left
+        then { sphere with rotationAmount = sphere.rotationAmount + 0.5f }
+        else sphere
 
     let rotationAmount = sphere.rotationAmount
     { sphere with
