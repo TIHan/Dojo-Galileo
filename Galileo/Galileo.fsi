@@ -4,6 +4,11 @@ open System
 open System.Numerics
 
 open Game
+open Input
+
+type InputState = Input.InputState
+type MouseState = Input.MouseState
+type MouseButtonType = Input.MouseButtonType
 
 [<NoComparison; ReferenceEquality>]
 type Sphere =
@@ -26,6 +31,12 @@ module Galileo =
     val spawnSphere : unit -> GameEntity<Sphere>
 
     val spawnSpheres : int -> GameEntity<Sphere> []
+
+    val getInputState : unit -> InputState
+
+    val isKeyPressed : char -> bool
+
+    val isMouseButtonPressed : MouseButtonType -> bool
 
 module GameEntity =
 

@@ -1,7 +1,6 @@
 ﻿open System
 open System.Numerics
 open Galileo
-open Input
 open Game
 
 Galileo.init ()
@@ -26,7 +25,7 @@ entity2
 |> GameEntity.setUpdate (fun time sphere ->
 
     let sphere =
-        if Input.isMouseButtonPressed MouseButtonType.Left
+        if Galileo.isMouseButtonPressed MouseButtonType.Left
         then { sphere with rotationAmount = sphere.rotationAmount + 0.5f }
         else sphere
 

@@ -10,6 +10,10 @@ open Ferop
 open Game
 open Input
 
+type InputState = Input.InputState
+type MouseState = Input.MouseState
+type MouseButtonType = Input.MouseButtonType
+
 [<NoComparison; ReferenceEquality>]
 type Sphere =
     {
@@ -173,10 +177,12 @@ module Galileo =
             env.defaultShaderProgram <- shaderProgram
             GameLoop.start
                 (fun () ->
-                    Input.pollEvents ()
+                    Input.poll ()
                 )
                 // server/client
                 (fun time interval ->
+                    Input.clearEvents ()
+
                     env.time <- TimeSpan.FromTicks time
                     GC.Collect (0, GCCollectionMode.Forced, true)
 
@@ -220,6 +226,12 @@ module Galileo =
 
     let spawnSpheres amount =
         proc.PostAndReply (fun ch -> Command.SpawnSpheres (amount, ch))
+
+    let getInputState () = Input.getState ()
+
+    let isKeyPressed key = Input.isKeyPressed key
+
+    let isMouseButtonPressed btn = Input.isMouseButtonPressed btn
 
 module GameEntity =
     let setUpdate f (entity: GameEntity<'T>) =

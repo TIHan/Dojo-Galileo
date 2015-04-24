@@ -119,15 +119,17 @@ module Input =
     [<Export>]
     let setState () =
         let events = inputEvents |> List.ofSeq
-        inputEvents.Clear ()
         state <-
             {
                 Events = events
                 Mouse = getMouseState ()
             }
 
+    let clearEvents () =
+        inputEvents.Clear ()
+
     [<Import; MI (MIO.NoInlining)>]
-    let pollEvents () : unit =
+    let poll () : unit =
         C """
         SDL_Event e;
         while (SDL_PollEvent (&e))

@@ -49,7 +49,8 @@ module Input =
     val private dispatchMouseWheelEvent : MouseWheelEvent -> unit
     val private getMouseState : unit -> MouseState
     val private setState : unit -> unit
-    val pollEvents : unit -> unit
+    val clearEvents : unit -> unit
+    val poll : unit -> unit
     val getState : unit -> InputState
     val isKeyPressed : char -> bool
     val isMouseButtonPressed : MouseButtonType -> bool
