@@ -10,7 +10,6 @@ open Ferop
 open Game
 open Input
 
-type InputState = Input.InputState
 type MouseState = Input.MouseState
 type MouseButtonType = Input.MouseButtonType
 
@@ -227,7 +226,9 @@ module Galileo =
     let spawnSpheres amount =
         proc.PostAndReply (fun ch -> Command.SpawnSpheres (amount, ch))
 
-    let getInputState () = Input.getState ()
+    let getInputEvents () = Input.getEvents ()
+
+    let getMouse () = Input.getMouse ()
 
     let isKeyPressed key = Input.isKeyPressed key
 

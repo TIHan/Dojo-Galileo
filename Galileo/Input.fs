@@ -196,7 +196,9 @@ module internal Input =
         Input_setState (); 
         """
 
-    let getState () : InputState = state
+    let getEvents () = state.Events
+
+    let getMouse () = state.Mouse
 
     let isKeyPressed key = keyPressedSet.Contains key
 

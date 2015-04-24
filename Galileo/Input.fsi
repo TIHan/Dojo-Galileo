@@ -19,12 +19,6 @@ type MouseState =
     val X : int
     val Y : int
 
-type InputState = 
-    { 
-        Events: InputEvent list 
-        Mouse: MouseState
-    }
-
 [<Struct>]
 type KeyboardEvent =
     val IsPressed : int
@@ -51,6 +45,7 @@ module internal Input =
     val private setState : unit -> unit
     val clearEvents : unit -> unit
     val poll : unit -> unit
-    val getState : unit -> InputState
+    val getEvents : unit -> InputEvent list
+    val getMouse : unit -> MouseState
     val isKeyPressed : char -> bool
     val isMouseButtonPressed : MouseButtonType -> bool
