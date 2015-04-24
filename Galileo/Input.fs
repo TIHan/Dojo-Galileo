@@ -62,7 +62,7 @@ type MouseWheelEvent =
 #include <stdio.h>
 #include "SDL.h"
 """)>]
-module Input =
+module internal Input =
 
     let inputEvents = ResizeArray<InputEvent> ()
 

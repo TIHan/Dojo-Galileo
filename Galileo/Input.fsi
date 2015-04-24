@@ -43,7 +43,7 @@ type MouseWheelEvent =
     val X : int
     val Y : int
 
-module Input =
+module internal Input =
     val private dispatchKeyboardEvent : KeyboardEvent -> unit
     val private dispatchMouseButtonEvent : MouseButtonEvent -> unit
     val private dispatchMouseWheelEvent : MouseWheelEvent -> unit
