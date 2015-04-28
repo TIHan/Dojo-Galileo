@@ -14,7 +14,7 @@ Galileo.init ()
 
 // ------------------------------------------------------------------------- //
 
-let entity = Galileo.spawnSphere ()
+let entity = Galileo.spawnSphere "earth.jpg"
 
 entity
 |> GameEntity.setUpdate (fun time sphere ->
@@ -26,25 +26,22 @@ entity
 
 // ------------------------------------------------------------------------- //
 
-let entity2 = Galileo.spawnSphere ()
+let entity2 = Galileo.spawnSphere "moon.jpg"
 
 entity2
 |> GameEntity.setUpdate (fun time sphere ->
-    let rotationAmount = sphere.rotationAmount + 0.1f
+
+    let sphere =
+        if Galileo.isMouseButtonPressed MouseButtonType.Left
+        then { sphere with rotationAmount = sphere.rotationAmount + 0.5f }
+        else sphere
+
+    let rotationAmount = sphere.rotationAmount
     { sphere with
-        rotationAmount = rotationAmount
         scale = Matrix4x4.CreateScale(0.5f)
         translation = Matrix4x4.CreateTranslation(Vector3(10.f, 0.f, 0.f))
-        rotation = Matrix4x4.CreateRotationY(rotationAmount)
+        rotation = Matrix4x4.CreateRotationZ(rotationAmount)
     }
 )
 
 // ------------------------------------------------------------------------- //
-
-let entities = Galileo.spawnSpheres 100
-entities
-|> Array.iter (fun entity ->
-    entity
-    |> GameEntity.setUpdate (fun time sphere -> { sphere with translation = Matrix4x4.Identity }
-    )
-)

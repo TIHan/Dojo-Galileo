@@ -52,7 +52,7 @@ module Galileo =
             4; 5; 1;
         |]
 
-    let spawnSphereHandler (env: GameEnvironment) : GameEntity<Sphere> =
+    let spawnSphereHandler textureFileName (env: GameEnvironment) : GameEntity<Sphere> =
         let vertices =
             octahedron_idx
             |> Array.map (fun i -> octahedron_vtx.[i])
@@ -120,7 +120,7 @@ module Galileo =
                 b = 0.f
             }
 
-        let textureId = R.CreateTexture "tc-earth_daymap_surface.jpg"
+        let textureId = R.CreateTexture textureFileName
         let nbo = R.CreateVBO normals
         let vbo = R.CreateVBO vertices
 
@@ -151,8 +151,7 @@ module Galileo =
 
     [<RequireQualifiedAccess; NoComparison; ReferenceEquality>]
     type Command =
-        | SpawnSphere of AsyncReplyChannel<GameEntity<Sphere>>
-        | SpawnSpheres of int * AsyncReplyChannel<GameEntity<Sphere>[]>
+        | SpawnSphere of string * AsyncReplyChannel<GameEntity<Sphere>>
 
     let window = ref IntPtr.Zero
     let proc = new MailboxProcessor<Command> (fun inbox ->
@@ -163,8 +162,7 @@ module Galileo =
 
         let handleMessages =
             function
-            | Command.SpawnSphere (ch) -> spawnSphereHandler env |> ch.Reply
-            | Command.SpawnSpheres (amount, ch) -> spawnSpheresHandler env amount |> ch.Reply
+            | Command.SpawnSphere (textureFileName, ch) -> spawnSphereHandler textureFileName env |> ch.Reply
 
         let rec loop () = async {
             let rec executeCommands () =
@@ -199,10 +197,10 @@ module Galileo =
 
                     R.Clear ()
 
-                    let cameraPosition = Vector3 (0.f, 0.f, 8.f)
+                    let cameraPosition = Vector3 (0.f, 8.f, 2.f)
 
                     let projection = Matrix4x4.CreatePerspectiveFieldOfView (90.f * 0.0174532925f, (400.f / 400.f), 0.1f, 100.f)
-                    let view = Matrix4x4.CreateLookAt (cameraPosition, Vector3 (0.f, 0.f, 0.f), Vector3 (0.f, 1.f, 0.f))
+                    let view = Matrix4x4.CreateLookAt (cameraPosition, Vector3 (0.f, 0.f, 0.f), Vector3.UnitY)
                     let model = Matrix4x4.Identity
 
                     R.SetProjection shaderProgram projection
@@ -224,11 +222,8 @@ module Galileo =
         proc.Error.Add (fun ex -> printfn "%A" ex)
         ()
 
-    let spawnSphere () =
-        proc.PostAndReply (fun ch -> Command.SpawnSphere (ch))
-
-    let spawnSpheres amount =
-        proc.PostAndReply (fun ch -> Command.SpawnSpheres (amount, ch))
+    let spawnSphere textureFileName =
+        proc.PostAndReply (fun ch -> Command.SpawnSphere (textureFileName, ch))
 
     let getInputEvents () = Input.getEvents ()
 

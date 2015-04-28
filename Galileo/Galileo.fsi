@@ -27,9 +27,7 @@ module Galileo =
 
     val init : unit -> unit
 
-    val spawnSphere : unit -> GameEntity<Sphere>
-
-    val spawnSpheres : int -> GameEntity<Sphere> []
+    val spawnSphere : string -> GameEntity<Sphere>
 
     val getInputEvents : unit -> InputEvent list
 
