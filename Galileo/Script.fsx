@@ -9,6 +9,7 @@ open Galileo
 open Game
 
 Environment.CurrentDirectory <- __SOURCE_DIRECTORY__
+
 Galileo.init ()
 
 // ------------------------------------------------------------------------- //

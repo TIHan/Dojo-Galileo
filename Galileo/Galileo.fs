@@ -120,6 +120,7 @@ module Galileo =
                 b = 0.f
             }
 
+        let textureId = R.CreateTexture "tc-earth_daymap_surface.jpg"
         let nbo = R.CreateVBO normals
         let vbo = R.CreateVBO vertices
 
@@ -137,6 +138,9 @@ module Galileo =
                 let b = curr.b
                 R.SetColor env.defaultShaderProgram r g b
 
+                R.SetTexture env.defaultShaderProgram textureId
+
+                R.BindTexture textureId
                 let (VBO (nbo, _)) = nbo
                 R.DrawVBOAsTrianglesWithNBO vbo nbo
 

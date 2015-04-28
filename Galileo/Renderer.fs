@@ -345,6 +345,44 @@ type R private () =
         glUniform3f (uni, cameraPosition.X, cameraPosition.Y, cameraPosition.Z);
         """
 
+    [<Import; MI (MIO.NoInlining)>]
+    static member SetTexture (shaderProgram: int) (textureId: int) : unit =
+        C """
+        GLuint uni = glGetUniformLocation (shaderProgram, "uni_texture");
+        glUniform1i(textureId, 0);
+        """
+
+    [<Import; MI (MIO.NoInlining)>]
+    static member BindTexture (textureId: int) : unit =
+        C """
+        glActiveTexture(GL_TEXTURE0);
+        glBindTexture(GL_TEXTURE_2D, textureId);
+        """
+
+    [<Import; MI (MIO.NoInlining)>]
+    static member _CreateTexture (width: int) (height: int) (data: nativeint) : int =
+        C """
+        // Create one OpenGL texture
+        GLuint textureID;
+        glGenTextures(1, &textureID);
+         
+        // "Bind" the newly created texture : all future texture functions will modify this texture
+        glBindTexture(GL_TEXTURE_2D, textureID);
+         
+        // Give the image to OpenGL
+        glTexImage2D(GL_TEXTURE_2D, 0,GL_RGB, width, height, 0, GL_BGR, GL_UNSIGNED_BYTE, data);
+         
+        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
+        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
+        return textureID;
+        """
+
+    static member CreateTexture (fileName: string) : int =
+        use bmp = new System.Drawing.Bitmap (fileName)
+        let rect = new Drawing.Rectangle(0, 0, bmp.Width, bmp.Height)
+        let bmpData = bmp.LockBits (rect, Drawing.Imaging.ImageLockMode.ReadOnly, Drawing.Imaging.PixelFormat.Format24bppRgb)
+        R._CreateTexture bmp.Width bmp.Height bmpData.Scan0
+
     static member LoadShaders () =
         let mutable vertexFile = ([|0uy|]) |> Array.append (File.ReadAllBytes ("v.vertex"))
         let mutable fragmentFile = ([|0uy|]) |> Array.append (File.ReadAllBytes ("f.fragment"))

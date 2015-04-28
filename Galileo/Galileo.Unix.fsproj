@@ -1,4 +1,4 @@
-<?xml version="1.0" encoding="utf-8"?>
+﻿<?xml version="1.0" encoding="utf-8"?>
 <Project ToolsVersion="4.0" DefaultTargets="Build" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
   <Import Project="$(MSBuildExtensionsPath)\$(MSBuildToolsVersion)\Microsoft.Common.props" Condition="Exists('$(MSBuildExtensionsPath)\$(MSBuildToolsVersion)\Microsoft.Common.props')" />
   <PropertyGroup>
@@ -58,6 +58,8 @@
     <Error Condition="!Exists('..\packages\Ferop.1.0.0-beta6\build\Ferop.targets')" Text="$([System.String]::Format('$(ErrorText)', '..\packages\Ferop.1.0.0-beta6\build\Ferop.targets'))" />
   </Target>
   <ItemGroup>
+    <Compile Include="Input.fsi" />
+    <Compile Include="Input.fs" />
     <Compile Include="Game.fsi" />
     <Compile Include="Game.fs" />
     <Compile Include="Renderer.fs" />
@@ -71,6 +73,9 @@
       <CopyToOutputDirectory>Always</CopyToOutputDirectory>
     </None>
     <Content Include="packages.config" />
+    <None Include="tc-earth_daymap_surface.jpg">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </None>
   </ItemGroup>
   <ItemGroup>
     <Reference Include="Ferop">
@@ -89,6 +94,7 @@
     <Reference Include="System.Runtime">
       <HintPath>..\..\..\..\..\Library\Frameworks\Mono.framework\Versions\3.12.1\lib\mono\4.5\Facades\System.Runtime.dll</HintPath>
     </Reference>
+    <Reference Include="System.Drawing" />
   </ItemGroup>
   <!-- To modify your build process, add your task inside one of the targets below and uncomment it. 
        Other similar extension points exist, see Microsoft.Common.targets.
