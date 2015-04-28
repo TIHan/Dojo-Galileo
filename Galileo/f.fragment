@@ -5,6 +5,7 @@ uniform sampler2D uni_texture;
 
 in vec3 normal_cameraspace;
 in vec3 direction_cameraspace;
+in vec3 vpos;
 
 out vec4 out_color;
 
@@ -12,8 +13,18 @@ void main ()
 {
 	//vec2 test = vec2(0.5, 0.5);
 	//texture(uni_texture, test).rgba;
+
 	vec3 n = normalize (normal_cameraspace);
 	vec3 l = normalize (direction_cameraspace);
 	float cosTheta = clamp (dot (n, l), 0, 1);
-    out_color = uni_color * cosTheta;
+
+	vec4 texCoords = vec4(vpos, 1);
+	vec2 longitudeLatitude = vec2((atan(texCoords.y, texCoords.x) / 3.1415926 + 1.0) * 0.5,
+                                  (asin(texCoords.z) / 3.1415926 + 0.5));
+        // processing of the texture coordinates;
+        // this is unnecessary if correct texture coordinates are specified by the application
+ 
+    //gl_FragColor = texture2D(mytexture, longitudeLatitude);
+
+    out_color =  texture(uni_texture, longitudeLatitude);//uni_color * cosTheta;
 }
