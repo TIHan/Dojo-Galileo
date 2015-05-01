@@ -129,6 +129,8 @@ module Galileo =
         let x = fun _ x -> x
         let y =
             fun env prev curr ->
+                R.UseProgram (env.planetShaderProgram)
+
                 let translation = Matrix4x4.Lerp (prev.translation, curr.translation, env.renderDelta)
                 let q1 = Quaternion.CreateFromRotationMatrix (prev.rotation)
                 let q2 = Quaternion.CreateFromRotationMatrix (curr.rotation)
@@ -136,17 +138,18 @@ module Galileo =
                 let rotation = Matrix4x4.CreateFromQuaternion (rotation)
                 let scale = Matrix4x4.Lerp (prev.scale, curr.scale, env.renderDelta)
 
-                R.SetModel env.defaultShaderProgram (scale * rotation * translation)
+                R.SetModel env.planetShaderProgram (scale * rotation * translation)
 
                 let r = curr.r
                 let g = curr.g
                 let b = curr.b
-                R.SetColor env.defaultShaderProgram r g b
+                R.SetColor env.planetShaderProgram r g b
 
-                R.SetTexture env.defaultShaderProgram textureId
+                R.SetTexture env.planetShaderProgram textureId
 
                 R.BindTexture textureId
                 let (VBO (nbo, _)) = nbo
+
                 R.DrawVBOAsTrianglesWithNBO vbo nbo
 
         env.CreateEntity (ent, x, y)
@@ -157,6 +160,7 @@ module Galileo =
     [<RequireQualifiedAccess; NoComparison; ReferenceEquality>]
     type Command =
         | SpawnSphere of string * AsyncReplyChannel<GameEntity<Sphere>>
+        | SpawnBackground
 
     let window = ref IntPtr.Zero
     let proc = new MailboxProcessor<Command> (fun inbox ->
@@ -168,6 +172,26 @@ module Galileo =
         let handleMessages =
             function
             | Command.SpawnSphere (textureFileName, ch) -> spawnSphereHandler textureFileName env |> ch.Reply
+            | Command.SpawnBackground ->
+                let textureId = R.CreateTexture "background.jpg"
+                let vbo = R.CreateVBO (Array.empty<single>)
+
+                let x = fun _ x -> x
+                let y =
+                    fun env prev curr ->
+                        R.UseProgram (env.backgroundShaderProgram)
+
+                        let translation = Matrix4x4.Identity
+
+                        R.SetModel env.backgroundShaderProgram (translation)
+
+                        R.SetTexture env.backgroundShaderProgram textureId
+
+                        R.BindTexture textureId
+
+                        R.DrawVBOAsTriangles vbo
+
+                env.CreateEntity ((), x, y) |> ignore  
 
         let rec loop () = async {
             let rec executeCommands () =
@@ -178,9 +202,15 @@ module Galileo =
                     executeCommands ()
 
             let r = R.Init window
-            let shaderProgram = R.LoadShaders ()
+            let planetShaderProgram = R.LoadShaders ("planet_vertex.glsl", "planet_fragment.glsl")
+            let backgroundShaderProgram = R.LoadShaders ("background_vertex.glsl", "background_fragment.glsl")
+            let vao = R.CreateVao ()
 
-            env.defaultShaderProgram <- shaderProgram
+            env.planetShaderProgram <- planetShaderProgram
+            env.backgroundShaderProgram <- backgroundShaderProgram
+
+            inbox.Post (Command.SpawnBackground)
+
             GameLoop.start
                 (fun () ->
                     Input.poll ()
@@ -208,10 +238,13 @@ module Galileo =
                     let view = Matrix4x4.CreateLookAt (cameraPosition, Vector3 (0.f, 0.f, 0.f), Vector3.UnitY)
                     let model = Matrix4x4.Identity
 
-                    R.SetProjection shaderProgram projection
-                    R.SetView shaderProgram view
-                    R.SetModel shaderProgram model
-                    R.SetCameraPosition shaderProgram cameraPosition
+                    R.SetProjection planetShaderProgram projection
+                    R.SetView planetShaderProgram view
+                    R.SetModel planetShaderProgram model
+                    R.SetCameraPosition planetShaderProgram cameraPosition
+
+                    let projection = Matrix4x4.CreateOrthographic (600.f, 600.f, 0.1f, Single.MaxValue)
+                    R.SetProjection backgroundShaderProgram projection
 
                     env.RenderEntities ()
 

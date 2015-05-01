@@ -47,7 +47,8 @@ and [<NoComparison; ReferenceEquality>]
         mutable length: int
         mutable time: TimeSpan
         mutable renderDelta: float32
-        mutable defaultShaderProgram: int
+        mutable planetShaderProgram: int
+        mutable backgroundShaderProgram: int
     }
 
     static member Create () =
@@ -56,7 +57,8 @@ and [<NoComparison; ReferenceEquality>]
             length = 0
             renderDelta = 0.f
             time = TimeSpan.Zero
-            defaultShaderProgram = 0
+            planetShaderProgram = 0
+            backgroundShaderProgram = 0
         }
 
     member this.CreateEntity<'T> (model: 'T, update, render) =

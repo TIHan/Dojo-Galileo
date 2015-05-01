@@ -215,16 +215,24 @@ type R private () =
             for (int i = 0; i < 65536; ++i) { ProgramErrorMessage[i] = '\0'; }
         }
 
-        glUseProgram (ProgramID);
+        return ProgramID;
+        """
 
-        /******************************************************/
-
+    [<Import; MI (MIO.NoInlining)>]
+    static member CreateVao () : int =
+        C """
         GLuint vao;
         glGenVertexArrays (1, &vao);
 
         glBindVertexArray (vao);
 
-        return ProgramID;
+        return vao;
+        """
+
+    [<Import; MI (MIO.NoInlining)>]
+    static member UseProgram (program: int) : unit =
+        C """
+        glUseProgram (program);
         """
 
     [<Import; MI (MIO.NoInlining)>]
@@ -383,9 +391,9 @@ type R private () =
         let bmpData = bmp.LockBits (rect, Drawing.Imaging.ImageLockMode.ReadOnly, Drawing.Imaging.PixelFormat.Format24bppRgb)
         R._CreateTexture bmp.Width bmp.Height bmpData.Scan0
 
-    static member LoadShaders () =
-        let mutable vertexFile = ([|0uy|]) |> Array.append (File.ReadAllBytes ("v.vertex"))
-        let mutable fragmentFile = ([|0uy|]) |> Array.append (File.ReadAllBytes ("f.fragment"))
+    static member LoadShaders (vertexFile, fragmentFile) =
+        let mutable vertexFile = ([|0uy|]) |> Array.append (File.ReadAllBytes (vertexFile))
+        let mutable fragmentFile = ([|0uy|]) |> Array.append (File.ReadAllBytes (fragmentFile))
 
         R._LoadShaders vertexFile fragmentFile
 

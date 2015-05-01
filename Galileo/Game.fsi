@@ -26,7 +26,8 @@ and [<NoComparison; ReferenceEquality>]
         mutable length: int
         mutable time: TimeSpan
         mutable renderDelta: float32
-        mutable defaultShaderProgram: int
+        mutable planetShaderProgram: int
+        mutable backgroundShaderProgram: int
     }
 
     static member Create : unit -> GameEnvironment
