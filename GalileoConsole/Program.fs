@@ -5,6 +5,9 @@ open Game
 
 Galileo.init ()
 
+let earthSize = 6371.0f
+let moonSize = 1737.10f
+
 // ------------------------------------------------------------------------- //
 
 let entity = Galileo.spawnSphere "earth.jpg"
@@ -18,7 +21,7 @@ entity
 
     let rotationAmount = sphere.rotationAmount
     { sphere with
-        scale = Matrix4x4.CreateScale(3.f)
+        scale = Matrix4x4.CreateScale(earthSize)
         rotation = Matrix4x4.CreateRotationZ(rotationAmount)
     }
 )
@@ -37,9 +40,8 @@ entity2
 
     let rotationAmount = sphere.rotationAmount
     { sphere with
-        scale = Matrix4x4.CreateScale(0.5f)
-        translation = Matrix4x4.CreateTranslation(Vector3(10.f, 0.f, 0.f))
-        rotation = Matrix4x4.CreateRotationZ(rotationAmount)
+        scale = Matrix4x4.CreateScale(moonSize)
+        translation = Matrix4x4.CreateTranslation(Vector3(Galileo.LunarDistance, 0.f, 0.f)) * Matrix4x4.CreateRotationZ(rotationAmount)
     }
 )
 

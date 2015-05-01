@@ -28,6 +28,8 @@ type Sphere =
 [<RequireQualifiedAccess>]
 module Galileo =
 
+    let LunarDistance = 384400.f
+
     let inline lerp x y t = x + (y - x) * t
 
     let octahedron_vtx = 
@@ -127,11 +129,14 @@ module Galileo =
         let x = fun _ x -> x
         let y =
             fun env prev curr ->
-                let translation = lerp prev.translation curr.translation env.renderDelta
-                let rotation = lerp prev.rotation curr.rotation env.renderDelta
-                let scale = lerp prev.scale curr.scale env.renderDelta
+                let translation = Matrix4x4.Lerp (prev.translation, curr.translation, env.renderDelta)
+                let q1 = Quaternion.CreateFromRotationMatrix (prev.rotation)
+                let q2 = Quaternion.CreateFromRotationMatrix (curr.rotation)
+                let rotation = Quaternion.Slerp (q1, q2, env.renderDelta)
+                let rotation = Matrix4x4.CreateFromQuaternion (rotation)
+                let scale = Matrix4x4.Lerp (prev.scale, curr.scale, env.renderDelta)
 
-                R.SetModel env.defaultShaderProgram (translation * rotation * scale)
+                R.SetModel env.defaultShaderProgram (scale * rotation * translation)
 
                 let r = curr.r
                 let g = curr.g
@@ -197,9 +202,9 @@ module Galileo =
 
                     R.Clear ()
 
-                    let cameraPosition = Vector3 (0.f, 8.f, 2.f)
+                    let cameraPosition = Vector3 (0.f, LunarDistance, LunarDistance)
 
-                    let projection = Matrix4x4.CreatePerspectiveFieldOfView (90.f * 0.0174532925f, (400.f / 400.f), 0.1f, 100.f)
+                    let projection = Matrix4x4.CreatePerspectiveFieldOfView (90.f * 0.0174532925f, (400.f / 400.f), 0.1f, Single.MaxValue)
                     let view = Matrix4x4.CreateLookAt (cameraPosition, Vector3 (0.f, 0.f, 0.f), Vector3.UnitY)
                     let model = Matrix4x4.Identity
 

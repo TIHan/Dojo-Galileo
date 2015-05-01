@@ -26,5 +26,5 @@ void main ()
  
     //gl_FragColor = texture2D(mytexture, longitudeLatitude);
 
-    out_color =  texture(uni_texture, longitudeLatitude) * cosTheta;//uni_color * cosTheta;
+    out_color =  texture(uni_texture, vec2(longitudeLatitude.x, 1 - longitudeLatitude.y)) * cosTheta;//uni_color * cosTheta;
 }

@@ -25,6 +25,8 @@ type Sphere =
 [<RequireQualifiedAccess>]
 module Galileo =
 
+    val LunarDistance : single
+
     val init : unit -> unit
 
     val spawnSphere : string -> GameEntity<Sphere>
