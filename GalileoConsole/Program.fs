@@ -48,7 +48,7 @@ moon
 // ------------------------------------------------------------------------- //
 
 Galileo.setUpdateCameraPosition (fun () -> 
-    Vector3 (0.f, 80000.f, earthSize * 100.f)
+    Vector3 (0.f, 80000.f, 7000.f * 100.f)
 )
 
 [<EntryPoint>]
