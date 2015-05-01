@@ -74,6 +74,18 @@ and [<NoComparison; ReferenceEquality>]
         this.AddEntity entity
         entity
 
+    member this.CreateEntityWithoutAdding<'T> (model: 'T, update, render) =
+        let entity =
+            {
+                id = this.length
+                env = this
+                prevModel = model
+                model = model
+                update = update
+                render = render
+            }
+        entity
+
     member this.AddEntity<'T> (entity: GameEntity<'T>) =
         this.entities.[this.length] <- Some (entity :> IGameEntity)
         this.length <- this.length + 1

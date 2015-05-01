@@ -34,6 +34,8 @@ and [<NoComparison; ReferenceEquality>]
 
     member CreateEntity<'T> : 'T * GameEntityUpdate<'T> * GameEntityRender<'T> -> GameEntity<'T>
 
+    member CreateEntityWithoutAdding<'T> : 'T * GameEntityUpdate<'T> * GameEntityRender<'T> -> GameEntity<'T>
+
     member UpdateEntities : unit -> unit
 
     member RenderEntities : unit -> unit

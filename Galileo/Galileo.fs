@@ -129,8 +129,6 @@ module Galileo =
         let x = fun _ x -> x
         let y =
             fun env prev curr ->
-                R.UseProgram (env.planetShaderProgram)
-
                 let translation = Matrix4x4.Lerp (prev.translation, curr.translation, env.renderDelta)
                 let q1 = Quaternion.CreateFromRotationMatrix (prev.rotation)
                 let q2 = Quaternion.CreateFromRotationMatrix (curr.rotation)
@@ -169,18 +167,26 @@ module Galileo =
 
         let env = GameEnvironment.Create ()
 
+        let backgroundEntity : Ref<IGameEntity> = ref Unchecked.defaultof<IGameEntity>
+
         let handleMessages =
             function
             | Command.SpawnSphere (textureFileName, ch) -> spawnSphereHandler textureFileName env |> ch.Reply
             | Command.SpawnBackground ->
                 let textureId = R.CreateTexture "background.jpg"
-                let vbo = R.CreateVBO (Array.empty<single>)
+                let vbo = 
+                    R.CreateVBO ([|
+                                    Vector3 (-1.f, -1.f, 0.1f)
+                                    Vector3 (-1.f, 1.f, 0.1f)
+                                    Vector3 (1.f, -1.f, 0.1f)
+                                    Vector3 (1.f, -1.f, 0.1f)
+                                    Vector3 (-1.f, 1.f, 0.1f)
+                                    Vector3 (1.f, 1.f, 0.1f)
+                    |] |> Array.rev)
 
                 let x = fun _ x -> x
                 let y =
                     fun env prev curr ->
-                        R.UseProgram (env.backgroundShaderProgram)
-
                         let translation = Matrix4x4.Identity
 
                         R.SetModel env.backgroundShaderProgram (translation)
@@ -189,9 +195,9 @@ module Galileo =
 
                         R.BindTexture textureId
 
-                        R.DrawVBOAsTriangles vbo
+                        R.DrawVBOAsTriangles2 vbo
 
-                env.CreateEntity ((), x, y) |> ignore  
+                backgroundEntity := env.CreateEntityWithoutAdding ((), x, y) :> IGameEntity
 
         let rec loop () = async {
             let rec executeCommands () =
@@ -232,21 +238,26 @@ module Galileo =
 
                     R.Clear ()
 
-                    let cameraPosition = Vector3 (0.f, LunarDistance, LunarDistance)
+                    let cameraPosition = Vector3 (0.f, -16000.f, 16000.f)
 
+                    R.UseProgram (env.backgroundShaderProgram)
+                    let projection = Matrix4x4.CreateOrthographic (1.f, 1.f, 0.1f, Single.MaxValue)
+                    R.SetProjection backgroundShaderProgram projection
+
+                    backgroundEntity.Value.Render env
+
+                    R.UseProgram (env.planetShaderProgram)
                     let projection = Matrix4x4.CreatePerspectiveFieldOfView (90.f * 0.0174532925f, (400.f / 400.f), 0.1f, Single.MaxValue)
                     let view = Matrix4x4.CreateLookAt (cameraPosition, Vector3 (0.f, 0.f, 0.f), Vector3.UnitY)
                     let model = Matrix4x4.Identity
-
                     R.SetProjection planetShaderProgram projection
                     R.SetView planetShaderProgram view
                     R.SetModel planetShaderProgram model
                     R.SetCameraPosition planetShaderProgram cameraPosition
 
-                    let projection = Matrix4x4.CreateOrthographic (600.f, 600.f, 0.1f, Single.MaxValue)
-                    R.SetProjection backgroundShaderProgram projection
-
+                    R.EnableDepth ()
                     env.RenderEntities ()
+                    R.DisableDepth ()
 
                     R.Draw r
                 )

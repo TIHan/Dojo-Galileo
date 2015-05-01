@@ -41,7 +41,7 @@ entity2
     let rotationAmount = sphere.rotationAmount
     { sphere with
         scale = Matrix4x4.CreateScale(moonSize)
-        translation = Matrix4x4.CreateTranslation(Vector3(Galileo.LunarDistance, 0.f, 0.f)) * Matrix4x4.CreateRotationZ(rotationAmount)
+        translation = Matrix4x4.CreateTranslation(Vector3(0.f, Galileo.LunarDistance, 0.f)) * Matrix4x4.CreateRotationZ(rotationAmount)
     }
 )
 

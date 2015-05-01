@@ -113,6 +113,27 @@ type R private () =
         glBindBuffer (GL_ARRAY_BUFFER, 0);
         """
 
+    [<Import; MI (MIO.NoInlining)>]
+    static member private _DrawBufferAsTriangles2 (size: int, vbo: int) : unit =
+        C """
+        glBindBuffer (GL_ARRAY_BUFFER, vbo);
+
+        glEnableVertexAttribArray (0);
+        glVertexAttribPointer (
+            0,                  // attribute 0. No particular reason for 0, but must match the layout in the shader.
+            3,                  // size
+            GL_FLOAT,           // type
+            GL_FALSE,           // normalized?
+            0,                  // stride
+            (void*)0            // array buffer offset
+        );
+
+        glDrawArrays (GL_TRIANGLES, 0, size);
+
+        glDisableVertexAttribArray (0);
+        glBindBuffer (GL_ARRAY_BUFFER, 0);
+        """
+
     // FIXME:
     [<Import; MI (MIO.NoInlining)>]
     static member private _DrawBufferAsTrianglesWithNBO (size: int, vbo: int, nbo: int) : unit =
@@ -281,18 +302,29 @@ type R private () =
         """
     
     [<Import; MI (MIO.NoInlining)>]
-    static member Clear () : unit = C """ 
-    glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
-    
-	// Enable depth test
-	glEnable(GL_DEPTH_TEST);
-	// Accept fragment if it closer to the camera than the former one
-	glDepthFunc(GL_LESS); 
+    static member Clear () : unit = 
+        C """ 
+        glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);    
+        """
 
-	// Cull triangles which normal is not towards the camera
-	glEnable(GL_CULL_FACE);
-    
-    """
+    [<Import; MI (MIO.NoInlining)>]
+    static member EnableDepth () : unit =
+        C """
+	    // Enable depth test
+	    glEnable(GL_DEPTH_TEST);
+	    // Accept fragment if it closer to the camera than the former one
+	    glDepthFunc(GL_LESS); 
+
+	    // Cull triangles which normal is not towards the camera
+	    glEnable(GL_CULL_FACE);
+        """
+
+    [<Import; MI (MIO.NoInlining)>]
+    static member DisableDepth () : unit =
+        C """
+        glDisable(GL_CULL_FACE);
+        glDisable(GL_DEPTH_TEST);
+        """
 
     [<Import; MI (MIO.NoInlining)>]
     static member Draw (r: RendererContext) : unit = C """ SDL_GL_SwapWindow ((SDL_Window*)r.Window); """
@@ -313,6 +345,9 @@ type R private () =
  
     static member DrawVBOAsTriangles (VBO (id, size)) : unit = 
         R._DrawBufferAsTriangles (size, id)
+
+    static member DrawVBOAsTriangles2 (VBO (id, size)) : unit = 
+        R._DrawBufferAsTriangles2 (size, id)
 
     // FIXME:
     static member DrawVBOAsTrianglesWithNBO (VBO (id, size)) nbo : unit = 
