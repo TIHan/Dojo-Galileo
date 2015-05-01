@@ -14,7 +14,7 @@ type MouseState = Input.MouseState
 type MouseButtonType = Input.MouseButtonType
 
 [<NoComparison; ReferenceEquality>]
-type Sphere =
+type Planet =
     {
         translation: Matrix4x4
         rotation: Matrix4x4
@@ -29,6 +29,17 @@ type Sphere =
 module Galileo =
 
     let LunarDistance = 384400.f
+
+    let prevCameraPosition = ref Vector3.Zero
+    let cameraPosition = ref Vector3.Zero
+    let updateCameraPosition = ref (fun () -> Vector3.Zero)
+
+    let prevLookAtPosition = ref Vector3.Zero
+    let lookAtPosition = ref Vector3.Zero
+    let updateLookAtPosition = ref (fun () -> Vector3.Zero)
+
+    let prevView = ref Matrix4x4.Identity
+    let view = ref Matrix4x4.Identity
 
     let inline lerp x y t = x + (y - x) * t
 
@@ -54,7 +65,7 @@ module Galileo =
             4; 5; 1;
         |]
 
-    let spawnSphereHandler textureFileName (env: GameEnvironment) : GameEntity<Sphere> =
+    let spawnSphereHandler textureFileName (env: GameEnvironment) : Entity<Planet> =
         let vertices =
             octahedron_idx
             |> Array.map (fun i -> octahedron_vtx.[i])
@@ -111,7 +122,7 @@ module Galileo =
                     |> Vector3.Normalize
             )
 
-        let ent : Sphere =
+        let ent : Planet =
             {
                 translation = Matrix4x4.Identity
                 rotation = Matrix4x4.Identity
@@ -136,7 +147,7 @@ module Galileo =
                 let rotation = Matrix4x4.CreateFromQuaternion (rotation)
                 let scale = Matrix4x4.Lerp (prev.scale, curr.scale, env.renderDelta)
 
-                R.SetModel env.planetShaderProgram (scale * rotation * translation)
+                R.SetModel env.planetShaderProgram (scale * Matrix4x4.CreateRotationX(-single Math.PI / 2.f) * rotation * translation)
 
                 let r = curr.r
                 let g = curr.g
@@ -157,17 +168,19 @@ module Galileo =
 
     [<RequireQualifiedAccess; NoComparison; ReferenceEquality>]
     type Command =
-        | SpawnSphere of string * AsyncReplyChannel<GameEntity<Sphere>>
+        | SpawnSphere of string * AsyncReplyChannel<Entity<Planet>>
         | SpawnBackground
 
     let window = ref IntPtr.Zero
+    let env = ref Unchecked.defaultof<GameEnvironment>
     let proc = new MailboxProcessor<Command> (fun inbox ->
         window := R.CreateWindow ()
         let window = !window
 
-        let env = GameEnvironment.Create ()
+        env := GameEnvironment.Create ()
+        let env = !env
 
-        let backgroundEntity : Ref<IGameEntity> = ref Unchecked.defaultof<IGameEntity>
+        let backgroundEntity : Ref<IEntity> = ref Unchecked.defaultof<IEntity>
 
         let handleMessages =
             function
@@ -197,7 +210,7 @@ module Galileo =
 
                         R.DrawVBOAsTriangles2 vbo
 
-                backgroundEntity := env.CreateEntityWithoutAdding ((), x, y) :> IGameEntity
+                backgroundEntity := env.CreateEntityWithoutAdding ((), x, y) :> IEntity
 
         let rec loop () = async {
             let rec executeCommands () =
@@ -226,19 +239,31 @@ module Galileo =
                     Input.clearEvents ()
 
                     env.time <- TimeSpan.FromTicks time
+                    env.interval <- TimeSpan.FromTicks interval
                     GC.Collect (0, GCCollectionMode.Forced, true)
 
                     executeCommands ()
 
                     env.UpdateEntities ()
+                    env.CommitUpdateEntities ()
+
+                    prevCameraPosition := !cameraPosition
+                    cameraPosition := (!updateCameraPosition)()
+
+                    prevLookAtPosition := !lookAtPosition
+                    lookAtPosition := (!updateLookAtPosition)()
+
+                    prevView := !view
+                    view := Matrix4x4.CreateLookAt (!cameraPosition, !lookAtPosition, Vector3.UnitY)
                 )
                 // client/render
                 (fun renderDelta ->
                     env.renderDelta <- renderDelta
 
-                    R.Clear ()
+                    let cameraPosition = Vector3.Lerp (!prevCameraPosition, !cameraPosition, renderDelta)
+                    let view = Matrix4x4.Lerp (!prevView, !view, renderDelta)
 
-                    let cameraPosition = Vector3 (0.f, -16000.f, 16000.f)
+                    R.Clear ()
 
                     R.UseProgram (env.backgroundShaderProgram)
                     let projection = Matrix4x4.CreateOrthographic (1.f, 1.f, 0.1f, Single.MaxValue)
@@ -248,7 +273,7 @@ module Galileo =
 
                     R.UseProgram (env.planetShaderProgram)
                     let projection = Matrix4x4.CreatePerspectiveFieldOfView (90.f * 0.0174532925f, (400.f / 400.f), 0.1f, Single.MaxValue)
-                    let view = Matrix4x4.CreateLookAt (cameraPosition, Vector3 (0.f, 0.f, 0.f), Vector3.UnitY)
+                    let view = view
                     let model = Matrix4x4.Identity
                     R.SetProjection planetShaderProgram projection
                     R.SetView planetShaderProgram view
@@ -271,7 +296,7 @@ module Galileo =
         proc.Error.Add (fun ex -> printfn "%A" ex)
         ()
 
-    let spawnSphere textureFileName =
+    let spawnPlanet textureFileName =
         proc.PostAndReply (fun ch -> Command.SpawnSphere (textureFileName, ch))
 
     let getInputEvents () = Input.getEvents ()
@@ -282,6 +307,13 @@ module Galileo =
 
     let isMouseButtonPressed btn = Input.isMouseButtonPressed btn
 
-module GameEntity =
-    let setUpdate f (entity: GameEntity<'T>) =
+    let setUpdateCameraPosition f = updateCameraPosition := f
+
+    let setUpdateLookAtPosition f = updateLookAtPosition := f
+
+    let entitiesIter f = (!env).entities |> Array.iter (fun x -> match x with | None -> () | Some x -> f x)
+
+[<CompilationRepresentation (CompilationRepresentationFlags.ModuleSuffix)>]
+module Planet =
+    let setUpdate f (entity: Entity<Planet>) =
         entity.SetUpdate f

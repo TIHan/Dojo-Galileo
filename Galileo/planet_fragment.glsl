@@ -18,13 +18,14 @@ void main ()
 	vec3 l = normalize (direction_cameraspace);
 	float cosTheta = clamp (dot (n, l), 0, 1);
 
+
+	float torad = 0.0174532925;
+	float xTheta = cos (90 * torad);
+	float yTheta = sin (90 * torad);
+
 	vec4 texCoords = vec4(vpos, 1);
 	vec2 longitudeLatitude = vec2((atan(texCoords.y, texCoords.x) / 3.1415926 + 1.0) * 0.5,
                                   (asin(texCoords.z) / 3.1415926 + 0.5));
-        // processing of the texture coordinates;
-        // this is unnecessary if correct texture coordinates are specified by the application
- 
-    //gl_FragColor = texture2D(mytexture, longitudeLatitude);
 
-    out_color =  texture(uni_texture, vec2(longitudeLatitude.x, 1 - longitudeLatitude.y)) * cosTheta;//uni_color * cosTheta;
+    out_color =  texture(uni_texture, vec2(longitudeLatitude.x, -longitudeLatitude.y)) * cosTheta;//uni_color * cosTheta;
 }

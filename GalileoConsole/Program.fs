@@ -10,42 +10,46 @@ let moonSize = 1737.10f
 
 // ------------------------------------------------------------------------- //
 
-let entity = Galileo.spawnSphere "earth.jpg"
+let earth = Galileo.spawnPlanet "earth.jpg"
 
-entity
-|> GameEntity.setUpdate (fun time sphere ->
+earth
+|> Planet.setUpdate (fun time interval planet ->
     let sphere =
         if Galileo.isMouseButtonPressed MouseButtonType.Right
-        then { sphere with rotationAmount = sphere.rotationAmount + 0.5f }
-        else sphere
+        then { planet with rotationAmount = planet.rotationAmount + 0.5f }
+        else planet
 
     let rotationAmount = sphere.rotationAmount
     { sphere with
         scale = Matrix4x4.CreateScale(earthSize)
-        rotation = Matrix4x4.CreateRotationZ(rotationAmount)
+        rotation = Matrix4x4.CreateRotationY(rotationAmount)
     }
 )
 
 // ------------------------------------------------------------------------- //
 
-let entity2 = Galileo.spawnSphere "moon.jpg"
+let moon = Galileo.spawnPlanet "moon.jpg"
 
-entity2
-|> GameEntity.setUpdate (fun time sphere ->
+moon
+|> Planet.setUpdate (fun time interval planet ->
 
-    let sphere =
+    let planet =
         if Galileo.isMouseButtonPressed MouseButtonType.Left
-        then { sphere with rotationAmount = sphere.rotationAmount + 0.5f }
-        else sphere
+        then { planet with rotationAmount = planet.rotationAmount + 0.05f }
+        else planet
 
-    let rotationAmount = sphere.rotationAmount
-    { sphere with
+    let rotationAmount = planet.rotationAmount
+    { planet with
         scale = Matrix4x4.CreateScale(moonSize)
-        translation = Matrix4x4.CreateTranslation(Vector3(0.f, Galileo.LunarDistance, 0.f)) * Matrix4x4.CreateRotationZ(rotationAmount)
+        translation = Matrix4x4.CreateTranslation(Vector3(0.f, 0.f, -Galileo.LunarDistance)) * Matrix4x4.CreateRotationY(rotationAmount)
     }
 )
 
 // ------------------------------------------------------------------------- //
+
+Galileo.setUpdateCameraPosition (fun () -> 
+    Vector3 (0.f, 80000.f, earthSize * 100.f)
+)
 
 [<EntryPoint>]
 let main argv = 

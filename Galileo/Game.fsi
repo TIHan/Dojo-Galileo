@@ -7,24 +7,28 @@ type GameEntityUpdate<'T> = GameEnvironment -> 'T -> 'T
 
 and GameEntityRender<'T> = GameEnvironment -> 'T -> 'T -> unit
 
-and IGameEntity =
+and IEntity =
     abstract Id : int
     abstract Update : GameEnvironment -> unit
+    abstract CommitUpdate : unit -> unit
     abstract Render : GameEnvironment -> unit
 
 and [<Sealed>]
-    GameEntity<'T> =
+    Entity<'T> =
 
-    member SetUpdate : (TimeSpan -> 'T -> 'T) -> unit
+    member SetUpdate : (TimeSpan -> TimeSpan -> 'T -> 'T) -> unit
 
-    interface IGameEntity
+    member Model : 'T
+
+    interface IEntity
 
 and [<NoComparison; ReferenceEquality>]
     GameEnvironment =
     {
-        entities: (IGameEntity option) []
+        entities: (IEntity option) []
         mutable length: int
         mutable time: TimeSpan
+        mutable interval: TimeSpan
         mutable renderDelta: float32
         mutable planetShaderProgram: int
         mutable backgroundShaderProgram: int
@@ -32,11 +36,13 @@ and [<NoComparison; ReferenceEquality>]
 
     static member Create : unit -> GameEnvironment
 
-    member CreateEntity<'T> : 'T * GameEntityUpdate<'T> * GameEntityRender<'T> -> GameEntity<'T>
+    member CreateEntity<'T> : 'T * GameEntityUpdate<'T> * GameEntityRender<'T> -> Entity<'T>
 
-    member CreateEntityWithoutAdding<'T> : 'T * GameEntityUpdate<'T> * GameEntityRender<'T> -> GameEntity<'T>
+    member CreateEntityWithoutAdding<'T> : 'T * GameEntityUpdate<'T> * GameEntityRender<'T> -> Entity<'T>
 
     member UpdateEntities : unit -> unit
+
+    member CommitUpdateEntities : unit -> unit
 
     member RenderEntities : unit -> unit
 

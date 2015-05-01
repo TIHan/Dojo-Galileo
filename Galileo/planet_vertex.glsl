@@ -15,7 +15,7 @@ out vec3 vpos;
 void main ()
 {
 	gl_Position = (uni_projection * uni_view * uni_model) * vec4 (vertexPosition_modelspace, 1);
-	vpos = vertexNormal_modelspace;
+	vpos = vertexPosition_modelspace;
 
 	// Position of the vertex, in worldspace : M * position
 	vec3 Position_worldspace = (uni_model * vec4(vertexPosition_modelspace,1)).xyz;

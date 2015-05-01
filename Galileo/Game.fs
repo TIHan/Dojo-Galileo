@@ -9,32 +9,39 @@ type GameEntityUpdate<'T> = GameEnvironment -> 'T -> 'T
 
 and GameEntityRender<'T> = GameEnvironment -> 'T -> 'T -> unit
 
-and IGameEntity =
+and IEntity =
     abstract Id : int
     abstract Update : GameEnvironment -> unit
+    abstract CommitUpdate : unit -> unit
     abstract Render : GameEnvironment -> unit
 
 and [<NoComparison; ReferenceEquality>]
-    GameEntity<'T> =
+    Entity<'T> =
     {
         id: int
         env: GameEnvironment
         mutable prevModel: 'T
         mutable model: 'T
+        mutable nextModel: 'T
         mutable update: GameEntityUpdate<'T>
         mutable render: GameEntityRender<'T>
     }
 
     member this.SetUpdate update =
-        this.update <- fun env x -> update env.time x
+        this.update <- fun env x -> update env.time env.interval x
 
-    interface IGameEntity with
+    member this.Model = this.model
+
+    interface IEntity with
 
         member this.Id = this.id
 
         member this.Update env =
             this.prevModel <- this.model
-            this.model <- this.update env this.model
+            this.nextModel <- this.update env this.model
+
+        member this.CommitUpdate () =
+            this.model <- this.nextModel
 
         member this.Render env =
             this.render env this.prevModel this.model
@@ -43,9 +50,10 @@ and [<NoComparison; ReferenceEquality>]
 and [<NoComparison; ReferenceEquality>]
     GameEnvironment =
     {
-        entities: (IGameEntity option) []
+        entities: (IEntity option) []
         mutable length: int
         mutable time: TimeSpan
+        mutable interval: TimeSpan
         mutable renderDelta: float32
         mutable planetShaderProgram: int
         mutable backgroundShaderProgram: int
@@ -57,6 +65,7 @@ and [<NoComparison; ReferenceEquality>]
             length = 0
             renderDelta = 0.f
             time = TimeSpan.Zero
+            interval = TimeSpan.Zero
             planetShaderProgram = 0
             backgroundShaderProgram = 0
         }
@@ -68,6 +77,7 @@ and [<NoComparison; ReferenceEquality>]
                 env = this
                 prevModel = model
                 model = model
+                nextModel = model
                 update = update
                 render = render
             }
@@ -81,13 +91,14 @@ and [<NoComparison; ReferenceEquality>]
                 env = this
                 prevModel = model
                 model = model
+                nextModel = model
                 update = update
                 render = render
             }
         entity
 
-    member this.AddEntity<'T> (entity: GameEntity<'T>) =
-        this.entities.[this.length] <- Some (entity :> IGameEntity)
+    member this.AddEntity<'T> (entity: Entity<'T>) =
+        this.entities.[this.length] <- Some (entity :> IEntity)
         this.length <- this.length + 1
 
     member this.UpdateEntities () =
@@ -96,6 +107,13 @@ and [<NoComparison; ReferenceEquality>]
             match ent with
             | None -> ()
             | Some ent -> ent.Update this)
+
+    member this.CommitUpdateEntities () =
+        this.entities
+        |> Array.iter (fun ent ->
+            match ent with
+            | None -> ()
+            | Some ent -> ent.CommitUpdate ())
 
     member this.RenderEntities () =
         this.entities

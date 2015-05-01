@@ -10,7 +10,7 @@ type MouseState = Input.MouseState
 type MouseButtonType = Input.MouseButtonType
 
 [<NoComparison; ReferenceEquality>]
-type Sphere =
+type Planet =
     {
         translation: Matrix4x4
         rotation: Matrix4x4
@@ -29,7 +29,7 @@ module Galileo =
 
     val init : unit -> unit
 
-    val spawnSphere : string -> GameEntity<Sphere>
+    val spawnPlanet : string -> Entity<Planet>
 
     val getInputEvents : unit -> InputEvent list
 
@@ -39,6 +39,13 @@ module Galileo =
 
     val isMouseButtonPressed : MouseButtonType -> bool
 
-module GameEntity =
+    val setUpdateCameraPosition : (unit -> Vector3) -> unit
 
-    val setUpdate : (TimeSpan -> 'T -> 'T) -> GameEntity<'T> -> unit
+    val setUpdateLookAtPosition : (unit -> Vector3) -> unit
+
+    val entitiesIter : (IEntity -> unit) -> unit
+
+[<CompilationRepresentation (CompilationRepresentationFlags.ModuleSuffix)>]
+module Planet =
+
+    val setUpdate : (TimeSpan -> TimeSpan -> Planet -> Planet) -> Entity<Planet> -> unit
