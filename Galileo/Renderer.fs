@@ -426,10 +426,15 @@ type R private () =
         """
 
     static member CreateTexture (fileName: string) : int =
+#if __UNIX__
+        use bmp = new Gdk.Pixbuf (fileName)
+        R._CreateTexture bmp.Width bmp.Height bmp.Pixels
+#else
         use bmp = new System.Drawing.Bitmap (fileName)
         let rect = new Drawing.Rectangle(0, 0, bmp.Width, bmp.Height)
         let bmpData = bmp.LockBits (rect, Drawing.Imaging.ImageLockMode.ReadOnly, Drawing.Imaging.PixelFormat.Format24bppRgb)
         R._CreateTexture bmp.Width bmp.Height bmpData.Scan0
+#endif
 
     static member LoadShaders (vertexFile, fragmentFile) =
         printfn "Loading %A and %A" vertexFile fragmentFile
