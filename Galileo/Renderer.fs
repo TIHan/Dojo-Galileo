@@ -257,15 +257,20 @@ type R private () =
         """
 
     [<Import; MI (MIO.NoInlining)>]
-    static member CreateWindow () : nativeint =
+    static member InitSDL () : unit =
         C """
         SDL_Init (SDL_INIT_VIDEO);
+        """
+
+    [<Import; MI (MIO.NoInlining)>]
+    static member CreateWindow () : nativeint =
+        C """
         return
         SDL_CreateWindow(
             "Galileo",
             SDL_WINDOWPOS_UNDEFINED,
             SDL_WINDOWPOS_UNDEFINED,
-            600, 600,
+            1280, 720,
             SDL_WINDOW_OPENGL);
         """
 

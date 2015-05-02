@@ -12,7 +12,7 @@
     <TargetFrameworkVersion>v4.5</TargetFrameworkVersion>
     <TargetFSharpCoreVersion>4.3.1.0</TargetFSharpCoreVersion>
     <Name>Galileo</Name>
-    <NuGetPackageImportStamp>733ff32e</NuGetPackageImportStamp>
+    <NuGetPackageImportStamp>5fcae495</NuGetPackageImportStamp>
   </PropertyGroup>
   <PropertyGroup Condition=" '$(Configuration)|$(Platform)' == 'Debug|AnyCPU' ">
     <DebugSymbols>true</DebugSymbols>
@@ -53,13 +53,6 @@
     </Otherwise>
   </Choose>
   <Import Project="$(FSharpTargetsPath)" />
-  <Import Project="..\packages\Ferop.1.0.0-beta6\build\Ferop.targets" Condition="Exists('..\packages\Ferop.1.0.0-beta6\build\Ferop.targets')" />
-  <Target Name="EnsureNuGetPackageBuildImports" BeforeTargets="PrepareForBuild">
-    <PropertyGroup>
-      <ErrorText>This project references NuGet package(s) that are missing on this computer. Enable NuGet Package Restore to download them.  For more information, see http://go.microsoft.com/fwlink/?LinkID=322105. The missing file is {0}.</ErrorText>
-    </PropertyGroup>
-    <Error Condition="!Exists('..\packages\Ferop.1.0.0-beta6\build\Ferop.targets')" Text="$([System.String]::Format('$(ErrorText)', '..\packages\Ferop.1.0.0-beta6\build\Ferop.targets'))" />
-  </Target>
   <ItemGroup>
     <Compile Include="Input.fsi" />
     <Compile Include="Input.fs" />
@@ -94,7 +87,7 @@
   </ItemGroup>
   <ItemGroup>
     <Reference Include="Ferop">
-      <HintPath>..\packages\Ferop.1.0.0-beta6\lib\net45\Ferop.dll</HintPath>
+      <HintPath>..\packages\Ferop.1.0.0-beta7\lib\net45\Ferop.dll</HintPath>
       <Private>True</Private>
     </Reference>
     <Reference Include="mscorlib" />
@@ -106,7 +99,7 @@
     <Reference Include="System.Drawing" />
     <Reference Include="System.Numerics" />
     <Reference Include="System.Numerics.Vectors">
-      <HintPath>..\packages\System.Numerics.Vectors.1.1.6-beta\lib\portable-net45+win8\System.Numerics.Vectors.dll</HintPath>
+      <HintPath>..\packages\System.Numerics.Vectors.4.0.0\lib\portable-net45+win8+wpa81\System.Numerics.Vectors.dll</HintPath>
       <Private>True</Private>
     </Reference>
   </ItemGroup>
@@ -114,6 +107,13 @@
     <PostBuildEvent>xcopy /f "$(ProjectDir)..\lib\win\$(PlatformTarget)\SDL2.dll" "$(TargetDir)" /q /y
 xcopy /f "$(ProjectDir)..\lib\win\$(PlatformTarget)\glew32.dll" "$(TargetDir)" /q /y</PostBuildEvent>
   </PropertyGroup>
+  <Import Project="..\packages\Ferop.1.0.0-beta7\build\Ferop.targets" Condition="Exists('..\packages\Ferop.1.0.0-beta7\build\Ferop.targets')" />
+  <Target Name="EnsureNuGetPackageBuildImports" BeforeTargets="PrepareForBuild">
+    <PropertyGroup>
+      <ErrorText>This project references NuGet package(s) that are missing on this computer. Enable NuGet Package Restore to download them.  For more information, see http://go.microsoft.com/fwlink/?LinkID=322105. The missing file is {0}.</ErrorText>
+    </PropertyGroup>
+    <Error Condition="!Exists('..\packages\Ferop.1.0.0-beta7\build\Ferop.targets')" Text="$([System.String]::Format('$(ErrorText)', '..\packages\Ferop.1.0.0-beta7\build\Ferop.targets'))" />
+  </Target>
   <!-- To modify your build process, add your task inside one of the targets below and uncomment it. 
        Other similar extension points exist, see Microsoft.Common.targets.
   <Target Name="BeforeBuild">

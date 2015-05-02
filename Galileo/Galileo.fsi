@@ -44,8 +44,3 @@ module Galileo =
     val setUpdateLookAtPosition : (unit -> Vector3) -> unit
 
     val entitiesIter : (IEntity -> unit) -> unit
-
-[<CompilationRepresentation (CompilationRepresentationFlags.ModuleSuffix)>]
-module Planet =
-
-    val setUpdate : (TimeSpan -> TimeSpan -> Planet -> Planet) -> Entity<Planet> -> unit

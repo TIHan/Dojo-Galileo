@@ -1,4 +1,4 @@
-﻿#version 330
+﻿#version 330 core
 
 uniform sampler2D uni_texture;
 
@@ -11,11 +11,11 @@ void main ()
 {
 	float imageWidth = 2048;
 	float imageHeight = 1024;
-	float windowWidth = 600;
-	float windowHeight = 600;
+	float windowWidth = 1280;
+	float windowHeight = 720;
 
 	float x = imageWidth / windowWidth;
 	float y = imageHeight / windowHeight;
 
-    out_color = texture(uni_texture, vec2(vpos.x / x, 1.5 - (vpos.y / y)));
+    out_color = texture(uni_texture, vec2(1.5 + vpos.x / x, 1.5 - (vpos.y / y)));
 }

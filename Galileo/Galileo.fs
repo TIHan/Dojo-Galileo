@@ -174,6 +174,7 @@ module Galileo =
     let window = ref IntPtr.Zero
     let env = ref Unchecked.defaultof<GameEnvironment>
     let proc = new MailboxProcessor<Command> (fun inbox ->
+        R.InitSDL ()
         window := R.CreateWindow ()
         let window = !window
 
@@ -272,7 +273,7 @@ module Galileo =
                     backgroundEntity.Value.Render env
 
                     R.UseProgram (env.planetShaderProgram)
-                    let projection = Matrix4x4.CreatePerspectiveFieldOfView (90.f * 0.0174532925f, (400.f / 400.f), 0.1f, Single.MaxValue)
+                    let projection = Matrix4x4.CreatePerspectiveFieldOfView (90.f * 0.0174532925f, (1280.f / 720.f), 0.1f, Single.MaxValue)
                     let view = view
                     let model = Matrix4x4.Identity
                     R.SetProjection planetShaderProgram projection
@@ -291,10 +292,9 @@ module Galileo =
 
     let init () =
         printfn "Begin Initializing Galileo"
-        //window := R.CreateWindow ()
+
         proc.Start ()
         proc.Error.Add (fun ex -> printfn "%A" ex)
-        ()
 
     let spawnPlanet textureFileName =
         proc.PostAndReply (fun ch -> Command.SpawnSphere (textureFileName, ch))
@@ -312,8 +312,3 @@ module Galileo =
     let setUpdateLookAtPosition f = updateLookAtPosition := f
 
     let entitiesIter f = (!env).entities |> Array.iter (fun x -> match x with | None -> () | Some x -> f x)
-
-[<CompilationRepresentation (CompilationRepresentationFlags.ModuleSuffix)>]
-module Planet =
-    let setUpdate f (entity: Entity<Planet>) =
-        entity.SetUpdate f
