@@ -3,6 +3,7 @@
 open System
 open System.IO
 open System.Numerics
+open System.Collections.Generic
 
 open Ferop
 
@@ -41,6 +42,7 @@ char FragmentShaderErrorMessage[65536];
 char ProgramErrorMessage[65536];
 """)>]
 type R private () = 
+    static let textureCache = Dictionary<string, int> ()
 
     [<Export>]
     static member private Failwith (size: int, ptr: nativeptr<sbyte>) : unit =
@@ -286,7 +288,7 @@ type R private () =
         SDL_GL_SetAttribute (SDL_GL_CONTEXT_PROFILE_MASK, SDL_GL_CONTEXT_PROFILE_CORE);
 
         r.GLContext = SDL_GL_CreateContext ((SDL_Window*)r.Window);
-        SDL_GL_SetSwapInterval (0);
+        SDL_GL_SetSwapInterval (1);
 
         #if defined(__GNUC__)
         #else
@@ -426,15 +428,22 @@ type R private () =
         """
 
     static member CreateTexture (fileName: string) : int =
+        match textureCache.ContainsKey fileName with
+        | true -> 
+            textureCache.[fileName]
+        | _ ->
+
 #if __UNIX__
         use bmp = new Gdk.Pixbuf (fileName)
-        R._CreateTexture bmp.Width bmp.Height bmp.Pixels
+        let id = R._CreateTexture bmp.Width bmp.Height bmp.Pixels
 #else
         use bmp = new System.Drawing.Bitmap (fileName)
         let rect = new Drawing.Rectangle(0, 0, bmp.Width, bmp.Height)
         let bmpData = bmp.LockBits (rect, Drawing.Imaging.ImageLockMode.ReadOnly, Drawing.Imaging.PixelFormat.Format24bppRgb)
-        R._CreateTexture bmp.Width bmp.Height bmpData.Scan0
+        let id = R._CreateTexture bmp.Width bmp.Height bmpData.Scan0
 #endif
+        textureCache.Add (fileName, id)
+        id
 
     static member LoadShaders (vertexFile, fragmentFile) =
         printfn "Loading %A and %A" vertexFile fragmentFile

@@ -103,7 +103,7 @@ and [<NoComparison; ReferenceEquality>]
 
     member this.UpdateEntities () =
         this.entities
-        |> Array.iter (fun ent ->
+        |> Array.Parallel.iter (fun ent ->
             match ent with
             | None -> ()
             | Some ent -> ent.Update this)

@@ -16,19 +16,13 @@ type MouseButtonType = Input.MouseButtonType
 [<NoComparison; ReferenceEquality>]
 type Planet =
     {
-        translation: Matrix4x4
-        rotation: Matrix4x4
-        scale: Matrix4x4
-        rotationAmount: single
-        r: float32
-        g: float32
-        b: float32
+        Translation: Matrix4x4
+        Rotation: Matrix4x4
+        Scale: Matrix4x4
     }
 
 [<RequireQualifiedAccess>]
 module Galileo =
-
-    let LunarDistance = 384400.f
 
     let prevCameraPosition = ref Vector3.Zero
     let cameraPosition = ref Vector3.Zero
@@ -65,7 +59,7 @@ module Galileo =
             4; 5; 1;
         |]
 
-    let spawnSphereHandler textureFileName (env: GameEnvironment) : Entity<Planet> =
+    let sphere =
         let vertices =
             octahedron_idx
             |> Array.map (fun i -> octahedron_vtx.[i])
@@ -122,15 +116,16 @@ module Galileo =
                     |> Vector3.Normalize
             )
 
+        vertices, normals
+
+    let spawnSphereHandler textureFileName (env: GameEnvironment) : Entity<Planet> =
+        let vertices, normals = sphere
+
         let ent : Planet =
             {
-                translation = Matrix4x4.Identity
-                rotation = Matrix4x4.Identity
-                scale = Matrix4x4.Identity
-                rotationAmount = 0.f
-                r = 0.f
-                g = 1.f
-                b = 0.f
+                Translation = Matrix4x4.Identity
+                Rotation = Matrix4x4.Identity
+                Scale = Matrix4x4.Identity
             }
 
         let textureId = R.CreateTexture textureFileName
@@ -140,19 +135,14 @@ module Galileo =
         let x = fun _ x -> x
         let y =
             fun env prev curr ->
-                let translation = Matrix4x4.Lerp (prev.translation, curr.translation, env.renderDelta)
-                let q1 = Quaternion.CreateFromRotationMatrix (prev.rotation)
-                let q2 = Quaternion.CreateFromRotationMatrix (curr.rotation)
+                let translation = Matrix4x4.Lerp (prev.Translation, curr.Translation, env.renderDelta)
+                let q1 = Quaternion.CreateFromRotationMatrix (prev.Rotation)
+                let q2 = Quaternion.CreateFromRotationMatrix (curr.Rotation)
                 let rotation = Quaternion.Slerp (q1, q2, env.renderDelta)
                 let rotation = Matrix4x4.CreateFromQuaternion (rotation)
-                let scale = Matrix4x4.Lerp (prev.scale, curr.scale, env.renderDelta)
+                let scale = Matrix4x4.Lerp (prev.Scale, curr.Scale, env.renderDelta)
 
                 R.SetModel env.planetShaderProgram (scale * Matrix4x4.CreateRotationX(-single Math.PI / 2.f) * rotation * translation)
-
-                let r = curr.r
-                let g = curr.g
-                let b = curr.b
-                R.SetColor env.planetShaderProgram r g b
 
                 R.SetTexture env.planetShaderProgram textureId
 
@@ -271,7 +261,7 @@ module Galileo =
                     backgroundEntity.Value.Render env
 
                     R.UseProgram (env.planetShaderProgram)
-                    let projection = Matrix4x4.CreatePerspectiveFieldOfView (90.f * 0.0174532925f, (1280.f / 720.f), 100.f, Single.MaxValue)
+                    let projection = Matrix4x4.CreatePerspectiveFieldOfView (90.f * 0.0174532925f, (1280.f / 720.f), 0.1f, Single.MaxValue)
                     let view = view
                     R.SetProjection planetShaderProgram projection
                     R.SetView planetShaderProgram view

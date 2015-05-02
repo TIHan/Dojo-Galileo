@@ -22,7 +22,7 @@ let earth = Galileo.spawnPlanet "earth.jpg"
 
 earth.SetUpdate (fun time interval planet ->
     { planet with
-        scale = Matrix4x4.CreateScale(earthSize)
+        Scale = Matrix4x4.CreateScale(earthSize)
     }
 )
 
@@ -30,13 +30,12 @@ earth.SetUpdate (fun time interval planet ->
 
 let moon = Galileo.spawnPlanet "moon.jpg"
 
+let rotationAmount = ref 0.f
 moon.SetUpdate (fun time interval planet ->
-    let planet = { planet with rotationAmount = planet.rotationAmount + 0.05f }
-
-    let rotationAmount = planet.rotationAmount
+    rotationAmount := !rotationAmount + 0.05f
     { planet with
-        scale = Matrix4x4.CreateScale(moonSize)
-        translation = Matrix4x4.CreateTranslation(Vector3(0.f, 0.f, -Galileo.LunarDistance)) * Matrix4x4.CreateRotationY(rotationAmount)
+        Scale = Matrix4x4.CreateScale(moonSize)
+        Translation = Matrix4x4.CreateTranslation(Vector3(0.f, 0.f, -Galileo.LunarDistance)) * Matrix4x4.CreateRotationY(!rotationAmount)
     }
 )
 
