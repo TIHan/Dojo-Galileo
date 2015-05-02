@@ -432,6 +432,7 @@ type R private () =
         R._CreateTexture bmp.Width bmp.Height bmpData.Scan0
 
     static member LoadShaders (vertexFile, fragmentFile) =
+        printfn "Loading %A and %A" vertexFile fragmentFile
         let mutable vertexFile = ([|0uy|]) |> Array.append (File.ReadAllBytes (vertexFile))
         let mutable fragmentFile = ([|0uy|]) |> Array.append (File.ReadAllBytes (fragmentFile))
 
