@@ -426,13 +426,10 @@ type R private () =
         """
 
     static member CreateTexture (fileName: string) : int =
-        printfn "%A" System.Drawing.Color.Red
-        //use bmp = new System.Drawing.Bitmap (fileName)
-        //let rect = new Drawing.Rectangle(0, 0, bmp.Width, bmp.Height)
-        //let bmpData = bmp.LockBits (rect, Drawing.Imaging.ImageLockMode.ReadOnly, Drawing.Imaging.PixelFormat.Format24bppRgb)
-        let id = 0//R._CreateTexture bmp.Width bmp.Height bmpData.Scan0
-        //bmp.UnlockBits (bmpData) |> ignore
-        id
+        use bmp = new System.Drawing.Bitmap (fileName)
+        let rect = new Drawing.Rectangle(0, 0, bmp.Width, bmp.Height)
+        let bmpData = bmp.LockBits (rect, Drawing.Imaging.ImageLockMode.ReadOnly, Drawing.Imaging.PixelFormat.Format24bppRgb)
+        R._CreateTexture bmp.Width bmp.Height bmpData.Scan0
 
     static member LoadShaders (vertexFile, fragmentFile) =
         printfn "Loading %A and %A" vertexFile fragmentFile
