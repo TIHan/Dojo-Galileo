@@ -266,12 +266,12 @@ module Galileo =
 
                     R.Clear ()
 
-//                    R.UseProgram (env.backgroundShaderProgram)
-//                    let projection = Matrix4x4.CreateOrthographic (1.f, 1.f, 0.1f, Single.MaxValue)
-//                    R.SetProjection backgroundShaderProgram projection
-//
-//                    backgroundEntity.Value.Render env
-//
+                    R.UseProgram (env.backgroundShaderProgram)
+                    let projection = Matrix4x4.CreateOrthographic (1.f, 1.f, 0.1f, Single.MaxValue)
+                    R.SetProjection backgroundShaderProgram projection
+
+                    backgroundEntity.Value.Render env
+
                     R.UseProgram (env.planetShaderProgram)
                     let projection = Matrix4x4.CreatePerspectiveFieldOfView (90.f * 0.0174532925f, (1280.f / 720.f), 0.1f, Single.MaxValue)
                     let view = view
