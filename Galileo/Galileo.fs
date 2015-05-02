@@ -174,8 +174,6 @@ module Galileo =
     let window = ref IntPtr.Zero
     let env = ref Unchecked.defaultof<GameEnvironment>
     let proc = new MailboxProcessor<Command> (fun inbox ->
-        R.InitSDL ()
-        window := R.CreateWindow ()
         let window = !window
 
         env := GameEnvironment.Create ()
@@ -273,12 +271,10 @@ module Galileo =
                     backgroundEntity.Value.Render env
 
                     R.UseProgram (env.planetShaderProgram)
-                    let projection = Matrix4x4.CreatePerspectiveFieldOfView (90.f * 0.0174532925f, (1280.f / 720.f), 0.1f, Single.MaxValue)
+                    let projection = Matrix4x4.CreatePerspectiveFieldOfView (90.f * 0.0174532925f, (1280.f / 720.f), 100.f, Single.MaxValue)
                     let view = view
-                    let model = Matrix4x4.Identity
                     R.SetProjection planetShaderProgram projection
                     R.SetView planetShaderProgram view
-                    R.SetModel planetShaderProgram model
                     R.SetCameraPosition planetShaderProgram cameraPosition
 
                     R.EnableDepth ()
@@ -292,6 +288,9 @@ module Galileo =
 
     let init () =
         printfn "Begin Initializing Galileo"
+
+        R.InitSDL ()
+        window := R.CreateWindow ()
 
         proc.Start ()
         proc.Error.Add (fun ex -> printfn "%A" ex)

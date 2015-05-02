@@ -21,15 +21,8 @@ let moonSize = 1737.10f
 let earth = Galileo.spawnPlanet "earth.jpg"
 
 earth.SetUpdate (fun time interval planet ->
-    let sphere =
-        if Galileo.isMouseButtonPressed MouseButtonType.Right
-        then { planet with rotationAmount = planet.rotationAmount + 0.5f }
-        else planet
-
-    let rotationAmount = sphere.rotationAmount
-    { sphere with
+    { planet with
         scale = Matrix4x4.CreateScale(earthSize)
-        rotation = Matrix4x4.CreateRotationY(rotationAmount)
     }
 )
 
@@ -38,10 +31,7 @@ earth.SetUpdate (fun time interval planet ->
 let moon = Galileo.spawnPlanet "moon.jpg"
 
 moon.SetUpdate (fun time interval planet ->
-    let planet =
-        if Galileo.isMouseButtonPressed MouseButtonType.Left
-        then { planet with rotationAmount = planet.rotationAmount + 0.05f }
-        else planet
+    let planet = { planet with rotationAmount = planet.rotationAmount + 0.05f }
 
     let rotationAmount = planet.rotationAmount
     { planet with

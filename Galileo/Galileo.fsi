@@ -31,13 +31,13 @@ module Galileo =
 
     val spawnPlanet : string -> Entity<Planet>
 
-    val getInputEvents : unit -> InputEvent list
+    //val getInputEvents : unit -> InputEvent list
 
-    val getMouse : unit -> MouseState
+    //val getMouse : unit -> MouseState
 
-    val isKeyPressed : char -> bool
+    //val isKeyPressed : char -> bool
 
-    val isMouseButtonPressed : MouseButtonType -> bool
+    //val isMouseButtonPressed : MouseButtonType -> bool
 
     val setUpdateCameraPosition : (unit -> Vector3) -> unit
 
