@@ -85,7 +85,6 @@
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
     </None>
     <None Include="Galileo.fsx" />
-    <None Include="MainWindow.cs" />
     <None Include="io.jpg">
       <CopyToOutputDirectory>Always</CopyToOutputDirectory>
     </None>
