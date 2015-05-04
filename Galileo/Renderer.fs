@@ -14,6 +14,9 @@ type RendererContext =
 
 type VBO = VBO of id: int * size: int
 
+module TextureCache =
+    let Cache = Dictionary<string, int> ()
+
 [<Ferop>]
 [<ClangOsx (
     "-DGL_GLEXT_PROTOTYPES -I/Library/Frameworks/SDL2.framework/Headers",
@@ -42,7 +45,6 @@ char FragmentShaderErrorMessage[65536];
 char ProgramErrorMessage[65536];
 """)>]
 type R private () = 
-    static let textureCache = Dictionary<string, int> ()
 
     [<Export>]
     static member private Failwith (size: int, ptr: nativeptr<sbyte>) : unit =
@@ -428,21 +430,15 @@ type R private () =
         """
 
     static member CreateTexture (fileName: string) : int =
-        match textureCache.ContainsKey fileName with
+        match TextureCache.Cache.ContainsKey fileName with
         | true -> 
-            textureCache.[fileName]
+            TextureCache.Cache.[fileName]
         | _ ->
 
-#if __UNIX__
         use bmp = new Gdk.Pixbuf (fileName)
         let id = R._CreateTexture bmp.Width bmp.Height bmp.Pixels
-#else
-        use bmp = new System.Drawing.Bitmap (fileName)
-        let rect = new Drawing.Rectangle(0, 0, bmp.Width, bmp.Height)
-        let bmpData = bmp.LockBits (rect, Drawing.Imaging.ImageLockMode.ReadOnly, Drawing.Imaging.PixelFormat.Format24bppRgb)
-        let id = R._CreateTexture bmp.Width bmp.Height bmpData.Scan0
-#endif
-        textureCache.Add (fileName, id)
+
+        TextureCache.Cache.Add (fileName, id)
         id
 
     static member LoadShaders (vertexFile, fragmentFile) =
