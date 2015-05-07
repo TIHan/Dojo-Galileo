@@ -18,7 +18,7 @@ and [<Sealed>]
 
     member SetUpdate : (TimeSpan -> TimeSpan -> 'T -> 'T) -> unit
 
-    member Model : 'T
+    member LastKnownState : 'T
 
     interface IEntity
 

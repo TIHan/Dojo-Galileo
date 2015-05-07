@@ -88,7 +88,7 @@ moon.SetUpdate (fun time interval planet ->
 let PI = Math.PI |> single
 
 moon.SetUpdate (fun time interval planet ->
-    let center = earth.Model.Translation.Translation
+    let center = earth.LastKnownState.Translation.Translation
     let angle = PI
     { planet with Translation = Matrix4x4.CreateRotationY (angle, center) }
 )
@@ -100,7 +100,7 @@ moon.SetUpdate (fun time interval planet ->
 
 let acc = ref 0.f
 moon.SetUpdate (fun time interval planet ->
-    let center = earth.Model.Translation.Translation
+    let center = earth.LastKnownState.Translation.Translation
     let angle = !acc
     acc := !acc + 0.05f
     { planet with 
@@ -118,7 +118,7 @@ let satellite = Galileo.spawnPlanet "io.jpg"
 let satAngle = ref 0.f
 
 satellite.SetUpdate (fun time interval planet ->
-    let isAround = moon.Model.Translation.Translation
+    let isAround = moon.LastKnownState.Translation.Translation
     let position = Vector3.Add(isAround, Vector3(0.f,1.f,0.f))
     let a = !satAngle
     satAngle := !satAngle + 0.05f
@@ -130,7 +130,7 @@ satellite.SetUpdate (fun time interval planet ->
 )
 
 Galileo.setUpdateLookAtPosition (fun () ->
-    moon.Model.Translation.Translation
+    moon.LastKnownState.Translation.Translation
 )
 
 let rng = System.Random()
@@ -145,7 +145,7 @@ for x in 1 .. 1000 do
     let n2 = 0.001 * rng.NextDouble() - 0.0005 |> single
 
     rock.SetUpdate (fun time interval planet ->
-        let isAround = moon.Model.Translation.Translation
+        let isAround = moon.LastKnownState.Translation.Translation
         let position = Vector3.Add(isAround, Vector3(n1,dist,n2))
         let a = !satAngle
         satAngle := !satAngle + 0.05f
@@ -155,3 +155,4 @@ for x in 1 .. 1000 do
             Scale = Matrix4x4.CreateScale (size)
         }
     )
+

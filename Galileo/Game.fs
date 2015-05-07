@@ -30,7 +30,7 @@ and [<NoComparison; ReferenceEquality>]
     member this.SetUpdate update =
         this.update <- fun env x -> update env.time env.interval x
 
-    member this.Model = this.model
+    member this.LastKnownState = this.model
 
     interface IEntity with
 
