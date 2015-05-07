@@ -299,5 +299,3 @@ module Galileo =
     let setUpdateCameraPosition f = updateCameraPosition := f
 
     let setUpdateLookAtPosition f = updateLookAtPosition := f
-
-    let entitiesIter f = (!env).entities |> Array.iter (fun x -> match x with | None -> () | Some x -> f x)

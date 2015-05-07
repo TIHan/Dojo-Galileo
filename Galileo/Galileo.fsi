@@ -24,5 +24,3 @@ module Galileo =
     val setUpdateCameraPosition : (unit -> Vector3) -> unit
 
     val setUpdateLookAtPosition : (unit -> Vector3) -> unit
-
-    val entitiesIter : (IEntity -> unit) -> unit
