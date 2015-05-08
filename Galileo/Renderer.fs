@@ -194,7 +194,7 @@ type R private () =
             glGetShaderInfoLog(VertexShaderID, InfoLogLength, &InfoLogLength, &VertexShaderErrorMessage[0]);
             if (InfoLogLength > 0)
             {
-                R_Failwith(InfoLogLength, &VertexShaderErrorMessage[0]);
+               // R_Failwith(InfoLogLength, &VertexShaderErrorMessage[0]);
             }
             for (int i = 0; i < 65536; ++i) { VertexShaderErrorMessage[i] = '\0'; }
         }
@@ -212,7 +212,7 @@ type R private () =
             glGetShaderInfoLog(FragmentShaderID, InfoLogLength, &InfoLogLength, &FragmentShaderErrorMessage[0]);
             if (InfoLogLength > 0)
             {
-                R_Failwith(InfoLogLength, &FragmentShaderErrorMessage[0]);
+               // R_Failwith(InfoLogLength, &FragmentShaderErrorMessage[0]);
             }
             for (int i = 0; i < 65536; ++i) { FragmentShaderErrorMessage[i] = '\0'; }
         }
@@ -235,7 +235,7 @@ type R private () =
             glGetProgramInfoLog(ProgramID, InfoLogLength, &InfoLogLength, &ProgramErrorMessage[0]);
             if (InfoLogLength > 0)
             {
-                R_Failwith(InfoLogLength, &ProgramErrorMessage[0]);
+               // R_Failwith(InfoLogLength, &ProgramErrorMessage[0]);
             }
             for (int i = 0; i < 65536; ++i) { ProgramErrorMessage[i] = '\0'; }
         }
